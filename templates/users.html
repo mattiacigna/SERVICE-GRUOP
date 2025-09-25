@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+  <h2 class="mb-3">Utenti & Assegnazioni</h2>
+
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <div class="card shadow-sm mb-4">
+        <div class="card-header">Nuovo utente</div>
+        <div class="card-body">
+          <form method="post" action="{{ url_for('users') }}" class="row g-2">
+            <div class="col-md-4"><input name="username" class="form-control" placeholder="Username" required></div>
+            <div class="col-md-4"><input name="password" type="password" class="form-control" placeholder="Password" required></div>
+            <div class="col-md-4">
+              <select name="role" class="form-select">
+                <option value="capo">Capo</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+            <div class="col-12"><input name="full_name" class="form-control" placeholder="Nome completo"></div>
+            <div class="col-12"><button class="btn btn-primary">Crea</button></div>
+          </form>
+        </div>
+      </div>
+
+      <div class="card shadow-sm">
+        <div class="card-header">Elenco utenti</div>
+        <div class="card-body table-responsive">
+          <table class="table align-middle">
+            <thead><tr><th>ID</th><th>User</th><th>Ruolo</th><th>Nome</th><th style="width:1%"></th></tr></thead>
+            <tbody>
+            {% for u in users %}
+              <tr>
+                <td>{{ u.id }}</td>
+                <td>{{ u.username }}</td>
+                <td>{{ u.role }}</td>
+                <td>{{ u.full_name or '' }}</td>
+                <td class="text-end">
+                  <form method="post" action="{{ url_for('delete_user', uid=u.id) }}" onsubmit="return confirm('Eliminare utente?');">
+                    <button class="btn btn-sm btn-danger">Elimina</button>
+                  </form>
+                </td>
+              </tr>
+            {% else %}
+              <tr><td colspan="5" class="text-muted">Nessun utente.</td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="card shadow-sm mb-4">
+        <div class="card-header">Assegna cantiere a utente</div>
+        <div class="card-body">
+          <form method="post" action="{{ url_for('assign_site') }}" class="row g-2">
+            <div class="col-md-6">
+              <select name="user_id" class="form-select" required>
+                <option value="">— Utente —</option>
+                {% for u in users %}<option value="{{ u.id }}">{{ u.username }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <select name="site_id" class="form-select" required>
+                <option value="">— Cantiere —</option>
+                {% for s in sites %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="col-12"><button class="btn btn-outline-primary">Assegna</button></div>
+          </form>
+        </div>
+      </div>
+
+      <div class="card shadow-sm">
+        <div class="card-header">Assegnazioni</div>
+        <div class="card-body table-responsive">
+          <table class="table align-middle">
+            <thead><tr><th>ID</th><th>Utente</th><th>Cantiere</th><th style="width:1%"></th></tr></thead>
+            <tbody>
+            {% for a in assignments %}
+              <tr>
+                <td>{{ a.id }}</td>
+                <td>{{ a.user.username }}</td>
+                <td>{{ a.site.name }}</td>
+                <td class="text-end">
+                  <form method="post" action="{{ url_for('delete_assignment', aid=a.id) }}" onsubmit="return confirm('Rimuovere assegnazione?');">
+                    <button class="btn btn-sm btn-danger">Rimuovi</button>
+                  </form>
+                </td>
+              </tr>
+            {% else %}
+              <tr><td colspan="4" class="text-muted">Nessuna assegnazione.</td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

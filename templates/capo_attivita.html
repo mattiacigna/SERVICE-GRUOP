@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+  <h2 class="mb-3">Attività giornaliere</h2>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-header">Nuova rilevazione</div>
+    <div class="card-body">
+      <form method="post" action="{{ url_for('capo_attivita') }}" class="row g-2">
+        <div class="col-md-3">
+          <input type="date" name="work_date" class="form-control" value="{{ now.date().isoformat() }}">
+        </div>
+        <div class="col-md-3">
+          <select name="site_id" class="form-select" required>
+            <option value="">— Cantiere —</option>
+            {% for a in assignments %}
+              <option value="{{ a.site.id }}">{{ a.site.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <select name="client_activity_id" class="form-select" required>
+            <option value="">— Attività assegnata —</option>
+            {% for ca in assigned_ca %}
+              <option value="{{ ca.id }}">{{ ca.site.name }} — {{ ca.activity.code }} ({{ ca.activity.unit }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-2">
+          <input name="qty" type="number" step="0.01" class="form-control" placeholder="Q.tà" required>
+        </div>
+        <div class="col-md-10">
+          <input name="note" class="form-control" placeholder="Nota (opzionale)">
+        </div>
+        <div class="col-md-2">
+          <button class="btn btn-primary w-100">Salva</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-header">Ultime rilevazioni</div>
+    <div class="card-body table-responsive">
+      <table class="table align-middle">
+        <thead>
+          <tr>
+            <th>Data</th><th>Cantiere</th><th>Attività</th><th>UM</th><th>Q.tà</th><th>Prezzo</th><th>Valore</th><th>Nota</th><th style="width:1%"></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for e in entries %}
+          <tr>
+            <td>{{ e.work_date.strftime('%Y-%m-%d') }}</td>
+            <td>{{ e.site.name }}</td>
+            <td>{{ e.client_activity.activity.code }} - {{ e.client_activity.activity.description }}</td>
+            <td>{{ e.client_activity.activity.unit }}</td>
+            <td>{{ '%.2f'|format(e.qty or 0) }}</td>
+            <td>€ {{ '%.2f'|format(e.client_activity.activity.unit_price or 0) }}</td>
+            <td>€ {{ '%.2f'|format((e.qty or 0) * (e.client_activity.activity.unit_price or 0)) }}</td>
+            <td>{{ e.note or '' }}</td>
+            <td class="text-end">
+              <form method="post" action="{{ url_for('delete_entry', eid=e.id) }}" onsubmit="return confirm('Eliminare rilevazione?');">
+                <button class="btn btn-sm btn-danger">Elimina</button>
+              </form>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="9" class="text-muted">Nessuna rilevazione.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
