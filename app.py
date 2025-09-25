@@ -20,16 +20,19 @@ from openpyxl import Workbook
 from openpyxl.styles import Font
 
 # ------------------ App config ------------------
+# Se i template/static sono nella stessa cartella del file, non serve specificare i folder.
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("APP_SECRET_KEY", "dev-secret")
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///data.db"
+# Consente persistenza su Render se imposti DATABASE_URL (es. sqlite:////var/data/data.db)
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///data.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-BASE_STATIC = os.path.join(os.path.dirname(__file__), "static")
+BASE_DIR = os.path.dirname(__file__)
+BASE_STATIC = os.path.join(BASE_DIR, "static")
+# Se su Render imposti UPLOAD_ROOT=/var/data/uploads li rende persistenti
 UPLOAD_ROOT = os.environ.get("UPLOAD_ROOT", os.path.join(BASE_STATIC, "uploads"))
 UPLOAD_DIR = UPLOAD_ROOT
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///data.db")
-
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp", "gif", "pdf"}
 def allowed_file(name: str) -> bool:
@@ -45,7 +48,7 @@ class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
-    role = db.Column(db.String(20), default="capo")  # "admin" or "capo"
+    role = db.Column(db.String(20), default="capo")  # "admin" o "capo"
     full_name = db.Column(db.String(120))
 
     def set_password(self, p):
@@ -98,7 +101,7 @@ class Equipment(db.Model):
     site = db.relationship("Site")
 
 class Assignment(db.Model):
-    """Associazione capocantiere -> cantiere"""
+    """Associazione capocantiere -> cantieri/veicoli/attrezzature (a livello cantiere)"""
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     site_id = db.Column(db.Integer, db.ForeignKey("site.id"), nullable=False)
@@ -152,8 +155,8 @@ class Alert(db.Model):
 # ------------------ Login ------------------
 @login_manager.user_loader
 def load_user(uid):
-    # rimuove la warning legacy
-    return db.session.get(User, int(uid))
+    # In SQLAlchemy 2.x Query.get è legacy ma funziona; potresti migrare a Session.get se vuoi.
+    return User.query.get(int(uid))
 
 # ------------------ Helpers ------------------
 def is_admin():
@@ -167,12 +170,10 @@ def save_upload(file_storage, prefix):
         return None
     out = f"{prefix}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{fname}"
     path = os.path.join(UPLOAD_DIR, out)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
     file_storage.save(path)
-    return f"uploads/{out}"
-
-def user_site_ids(user_id: int):
-    """Ritorna gli ID dei cantieri assegnati all'utente (Assignment)."""
-    return [a.site_id for a in Assignment.query.filter_by(user_id=user_id).all()]
+    # Percorso relativo servibile da static se UPLOAD_DIR sta in static, altrimenti resta un path generico
+    return f"{out}" if UPLOAD_DIR.startswith(BASE_STATIC) else path
 
 # ------------------ Init DB ------------------
 def ensure_demo():
@@ -204,8 +205,8 @@ with app.app_context():
 # ------------------ Routes (auth) ------------------
 @app.route("/")
 def index():
+    # Evita errore TemplateNotFound su Render se manca index.html
     return redirect(url_for("login"))
-
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -233,7 +234,7 @@ def dashboard():
     if is_admin():
         unread = Alert.query.filter_by(is_read=False).count()
         return render_template("dashboard_admin.html", unread=unread)
-    # Capocantiere (operatore)
+    # Capocantiere
     my_sites = (
         db.session.query(Site)
         .join(Assignment, Assignment.site_id == Site.id)
@@ -348,6 +349,35 @@ def users():
                            sites=Site.query.order_by(Site.name).all(),
                            assignments=Assignment.query.all())
 
+@app.route("/admin/users/<int:uid>/update", methods=["POST"])
+@login_required
+def update_user(uid):
+    if not is_admin(): return redirect(url_for("dashboard"))
+    u = User.query.get_or_404(uid)
+    username = (request.form.get("username") or u.username).strip()
+    full_name = (request.form.get("full_name") or u.full_name or "").strip()
+    role = (request.form.get("role") or u.role or "capo").strip()
+    password = request.form.get("password")
+
+    if u.id == current_user.id and role != "admin":
+        flash("Non puoi rimuovere il ruolo admin da te stesso.", "warning")
+        return redirect(url_for("users"))
+
+    if User.query.filter(User.username == username, User.id != u.id).first():
+        flash("Username già in uso da un altro utente.", "danger")
+        return redirect(url_for("users"))
+
+    u.username, u.full_name, u.role = username, full_name, role
+    if password and password.strip():
+        u.set_password(password.strip())
+    try:
+        db.session.commit()
+        flash("Utente aggiornato.", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Errore aggiornamento: {e}", "danger")
+    return redirect(url_for("users"))
+
 @app.route("/admin/users/<int:uid>/delete", methods=["POST"])
 @login_required
 def delete_user(uid):
@@ -411,123 +441,43 @@ def delete_vehicle(vid):
     flash("Veicolo eliminato", "success")
     return redirect(url_for("vehicles"))
 
-# ================== ATTREZZATURE ==================
 @app.route("/admin/equipment", methods=["GET","POST"])
 @login_required
 def equipment():
-    """
-    GET:
-      - Admin: vede tutto.
-      - Capo: vede solo attrezzature dei propri cantieri.
-    POST (crea/assegna/elimina): solo Admin.
-    """
-    # --- POST: solo admin crea/assegna/elimina ---
+    if not is_admin(): return redirect(url_for("dashboard"))
     if request.method == "POST":
-        if not is_admin():
-            flash("Non autorizzato", "danger")
-            return redirect(url_for("equipment"))
-
-        # elimina con hidden delete_eid (compatibile con template)
-        delete_eid = request.form.get("delete_eid")
-        if delete_eid:
-            try:
-                Equipment.query.filter_by(id=int(delete_eid)).delete()
-                db.session.commit()
-                flash("Attrezzatura eliminata", "success")
-            except Exception as e:
-                db.session.rollback()
-                flash(f"Errore eliminazione: {e}", "danger")
-            return redirect(url_for("equipment"))
-
-        # crea/assegna
-        code = (request.form.get("code") or "").strip().upper()
-        description = (request.form.get("description") or "").strip()
+        code = request.form.get("code","").strip().upper()
+        description = request.form.get("description","").strip()
         qty = request.form.get("qty", type=int) or 1
         site_id = request.form.get("site_id", type=int)
         status = request.form.get("status","disponibile")
         if not code or not description:
             flash("Codice e descrizione obbligatori", "warning")
         else:
-            try:
-                db.session.add(Equipment(code=code, description=description, qty=qty, site_id=site_id, status=status))
-                db.session.commit()
-                flash("Attrezzatura inserita/assegnata", "success")
-            except Exception as e:
-                db.session.rollback()
-                flash(f"Errore inserimento: {e}", "danger")
+            db.session.add(Equipment(code=code, description=description, qty=qty, site_id=site_id, status=status))
+            db.session.commit()
+            flash("Attrezzatura inserita", "success")
         return redirect(url_for("equipment"))
 
-    # --- GET: prepara dati per template ---
     alerts = Alert.query.order_by(Alert.created_at.desc()).limit(15).all()
-
-    if is_admin():
-        equipments = Equipment.query.order_by(Equipment.code).all()
-        sites = Site.query.order_by(Site.name).all()
-        my_sites = sites
-    else:
-        ids = user_site_ids(current_user.id)
-        sites = Site.query.filter(Site.id.in_(ids)).order_by(Site.name).all() if ids else []
-        my_sites = sites
-        equipments = (
-            Equipment.query.filter(Equipment.site_id.in_(ids)).order_by(Equipment.code).all()
-            if ids else []
-        )
-
     return render_template("equipment.html",
-                           equipments=equipments,
-                           sites=sites,
-                           my_sites=my_sites,
+                           equipments=Equipment.query.order_by(Equipment.code).all(),
+                           sites=Site.query.order_by(Site.name).all(),
                            alerts=alerts)
 
 @app.route("/admin/equipment/<int:eid>/status", methods=["POST"])
 @login_required
 def equipment_status(eid):
-    """
-    Aggiorna lo stato dell'attrezzatura.
-    - Admin: qualsiasi stato (disponibile/occupato/rotto/manutenzione).
-    - Capo: SOLO 'rotto' o 'manutenzione' e SOLO su attrezzature dei propri cantieri.
-    """
-    allowed_all = ["disponibile", "occupato", "rotto", "manutenzione"]
-    allowed_capo = ["rotto", "manutenzione"]
-
-    new_status = (request.form.get("status") or "").strip().lower()
-    if not new_status:
-        flash("Stato non specificato", "warning")
-        return redirect(url_for("equipment"))
-
-    eq = db.session.get(Equipment, eid)
-    if not eq:
-        flash("Attrezzatura non trovata", "warning")
-        return redirect(url_for("equipment"))
-
-    if is_admin():
-        if new_status not in allowed_all:
-            flash("Stato non valido", "warning")
-            return redirect(url_for("equipment"))
-    else:
-        # capo/operatore: vincoli
-        if new_status not in allowed_capo:
-            flash("Come operatore puoi impostare solo: rotto o manutenzione", "warning")
-            return redirect(url_for("equipment"))
-        my_ids = set(user_site_ids(current_user.id))
-        if not eq.site_id or eq.site_id not in my_ids:
-            flash("Non puoi modificare attrezzature non assegnate ai tuoi cantieri", "danger")
-            return redirect(url_for("equipment"))
-
-    try:
-        eq.status = new_status
-        db.session.commit()
-        if not is_admin():
-            db.session.add(Alert(message=f"Attrezzatura {eq.code} segnalata '{new_status}' dal capo {current_user.username}"))
-            db.session.commit()
-        flash("Stato aggiornato", "success")
-    except Exception as e:
-        db.session.rollback()
-        flash(f"Errore aggiornamento: {e}", "danger")
-
+    if not is_admin(): return redirect(url_for("dashboard"))
+    e = Equipment.query.get_or_404(eid)
+    new_status = request.form.get("status","disponibile")
+    e.status = new_status
+    db.session.commit()
+    flash("Stato aggiornato", "success")
     return redirect(url_for("equipment"))
 
-@app.route("/admin/equipment/<int:eid>/delete", methods=["POST"])
+# Endpoint nominato come nel template: equipment_delete
+@app.route("/admin/equipment/<int:eid>/delete", methods=["POST"], endpoint="equipment_delete")
 @login_required
 def delete_equipment(eid):
     if not is_admin(): return redirect(url_for("dashboard"))
@@ -589,7 +539,6 @@ def delete_entry(eid):
 @app.route("/capo/spese", methods=["GET","POST"])
 @login_required
 def capo_spese():
-    # elenco cantieri del capo
     assignments = Assignment.query.filter_by(user_id=current_user.id).all() if not is_admin() else Assignment.query.all()
     if request.method == "POST":
         site_id = request.form.get("site_id", type=int)
@@ -610,7 +559,6 @@ def capo_spese():
             db.session.commit()
             flash("Spesa registrata", "success")
         return redirect(url_for("capo_spese"))
-    # lista
     q = SiteExpense.query.order_by(SiteExpense.exp_date.desc(), SiteExpense.id.desc())
     if not is_admin():
         q = q.filter(SiteExpense.user_id == current_user.id)
@@ -652,13 +600,9 @@ def capo_spese_veicoli():
 def capo_equipment_status(eid):
     e = Equipment.query.get_or_404(eid)
     new_status = request.form.get("status","manutenzione")
-    # vincoli lato funzione "capo": solo rotto/manutenzione e solo sui propri cantieri
-    if new_status not in ("rotto","manutenzione"):
-        flash("Come operatore puoi impostare solo: rotto o manutenzione", "warning")
-        return redirect(url_for("dashboard"))
-    if e.site_id not in set(user_site_ids(current_user.id)):
-        flash("Attrezzatura non assegnata ad un tuo cantiere", "danger")
-        return redirect(url_for("dashboard"))
+    # Limito i valori impostabili dal capo
+    if new_status not in {"rotto", "manutenzione"}:
+        new_status = "manutenzione"
     e.status = new_status
     db.session.add(Alert(message=f"Attrezzatura {e.code} segnalata '{new_status}' dal capo {current_user.username}"))
     db.session.commit()
@@ -670,7 +614,6 @@ def capo_equipment_status(eid):
 @login_required
 def admin_report():
     if not is_admin(): return redirect(url_for("dashboard"))
-    # qualche numero
     today = date.today()
     start = datetime(today.year, today.month, 1).date()
     acts = db.session.query(ActivityEntry.work_date,
@@ -684,7 +627,6 @@ def admin_report():
     veh_cost = db.session.query(func.sum(VehicleExpense.amount)).scalar() or 0.0
     site_cost = db.session.query(func.sum(SiteExpense.amount)).scalar() or 0.0
 
-    # default per i campi data nel template (evita usare timedelta in jinja)
     start_default = (date.today() - timedelta(days=7)).isoformat()
     end_default = date.today().isoformat()
 
@@ -777,18 +719,17 @@ def export_spese_cantiere():
 # ------------------ Template helpers ------------------
 @app.context_processor
 def inject_now():
-    # Rendo disponibili oggetti utili nei template
+    # Oggetti utili nei template
     return {
         "now": datetime.now(),
-        "timedelta": timedelta,  # se qualche template lo usa direttamente
+        "timedelta": timedelta,
         "date": date
     }
 
-# Adattatore per supportare chiamate url_for con argomenti POSIZIONALI dai template esistenti
+# Adattatore per chiamate url_for con argomenti posizionali dai template esistenti
 @app.context_processor
 def url_for_positional_adapter():
     def url_for_fix(endpoint, *args, **kwargs):
-        # Se arrivano argomenti posizionali dai template, li mappo ai nomi corretti
         if args:
             try:
                 if endpoint == "delete_clients_sites" and len(args) == 2:
@@ -803,8 +744,10 @@ def url_for_positional_adapter():
                 if endpoint == "delete_vehicle" and len(args) == 1:
                     (vid,) = args
                     return url_for(endpoint, vid=vid)
+                if endpoint == "equipment_delete" and len(args) == 1:
+                    (eid,) = args
+                    return url_for(endpoint, eid=eid)
             except Exception:
-                # fallback: lascio passare a url_for, ma senza args posizionali
                 pass
         return url_for(endpoint, **kwargs)
     return dict(url_for=url_for_fix)
