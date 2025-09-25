@@ -1,0 +1,8 @@
+body {
+    color: #ffffff;   /* testo bianco */
+    background-color: #000000; /* sfondo nero (se lo vuoi) */
+}
+
+h1, h2, h3, h4, h5, h6, p, label, a, span, td, th {
+    color: #ffffff !important;
+}

@@ -1,0 +1,23 @@
+/* Testo bianco globale */
+body { color: #ffffff !important; }
+
+/* Copertura extra per dashboard */
+.dashboard, .dashboard * { color: #ffffff !important; }
+
+/* Link leggibili su tema scuro */
+a { color: #ffffff; text-decoration: underline; }
+a:hover { opacity: .8; }
+
+body { background:#0b0b0b; }
+/* Forza il testo bianco dentro le card della dashboard */
+.card, .card * {
+    color: #ffffff !important;
+}
+
+/* Se usi box con icone */
+.dashboard-icon, .dashboard-icon * {
+    color: #ffffff !important;
+}
+.card p, .card h1, .card h2, .card h3 {
+    color: #ffffff !important;
+}
