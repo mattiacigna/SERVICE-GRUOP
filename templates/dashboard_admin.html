@@ -1,17 +1,73 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="row g-4">
-  <div class="col-md-4">
-    <div class="card p-4">
-      <h5>Alert attrezzatura</h5>
-      <p class="display-6">{{ unread }}</p>
-      <a href="{{ url_for('equipment') }}" class="btn btn-sm btn-outline-light">Vai</a>
+<div class="container py-4">
+  <h2 class="mb-4">Dashboard Admin</h2>
+
+  <div class="row g-4">
+    <div class="col-md-4">
+      <div class="card shadow-sm h-100 text-center">
+        <div class="card-body">
+          <i class="bi bi-people display-4 mb-3"></i>
+          <h5 class="card-title">Gestione Utenti</h5>
+          <p class="card-text">Crea, modifica, elimina e assegna i cantieri.</p>
+          <a href="{{ url_for('users') }}" class="btn btn-primary">Vai</a>
+        </div>
+      </div>
     </div>
-  </div>
-  <div class="col-md-8">
-    <div class="card p-4">
-      <h5>Benvenuto, Admin</h5>
-      <p>Usa il menu per gestire clienti, cantieri, attività, utenti, veicoli, attrezzature e report.</p>
+
+    <div class="col-md-4">
+      <div class="card shadow-sm h-100 text-center">
+        <div class="card-body">
+          <i class="bi bi-building display-4 mb-3"></i>
+          <h5 class="card-title">Clienti & Cantieri</h5>
+          <p class="card-text">Gestisci clienti e cantieri.</p>
+          <a href="{{ url_for('clients_sites') }}" class="btn btn-primary">Vai</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card shadow-sm h-100 text-center">
+        <div class="card-body">
+          <i class="bi bi-list-task display-4 mb-3"></i>
+          <h5 class="card-title">Catalogo Attività</h5>
+          <p class="card-text">Crea attività e assegnale ai cantieri.</p>
+          <a href="{{ url_for('catalogo') }}" class="btn btn-primary">Vai</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card shadow-sm h-100 text-center">
+        <div class="card-body">
+          <i class="bi bi-truck display-4 mb-3"></i>
+          <h5 class="card-title">Veicoli</h5>
+          <p class="card-text">Anagrafica veicoli e spese correlate.</p>
+          <a href="{{ url_for('vehicles') }}" class="btn btn-primary">Vai</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card shadow-sm h-100 text-center">
+        <div class="card-body">
+          <i class="bi bi-tools display-4 mb-3"></i>
+          <h5 class="card-title">Attrezzature</h5>
+          <p class="card-text">Gestisci attrezzature e stato.</p>
+          <a href="{{ url_for('equipment') }}" class="btn btn-primary">Vai</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card shadow-sm h-100 text-center">
+        <div class="card-body">
+          <i class="bi bi-clipboard-data display-4 mb-3"></i>
+          <h5 class="card-title">Report</h5>
+          <p class="card-text">Esporta e consulta i report.</p>
+          <a href="{{ url_for('admin_report') }}" class="btn btn-primary">Vai</a>
+        </div>
+      </div>
     </div>
   </div>
 </div>
