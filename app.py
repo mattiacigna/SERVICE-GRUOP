@@ -26,8 +26,10 @@ app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///data.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 BASE_STATIC = os.path.join(os.path.dirname(__file__), "static")
-UPLOAD_DIR = os.path.join(BASE_STATIC, "uploads")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+UPLOAD_ROOT = os.environ.get("UPLOAD_ROOT", os.path.join(BASE_STATIC, "uploads"))
+UPLOAD_DIR = UPLOAD_ROOT
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///data.db")
+
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp", "gif", "pdf"}
 def allowed_file(name: str) -> bool:
@@ -202,7 +204,8 @@ with app.app_context():
 # ------------------ Routes (auth) ------------------
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return redirect(url_for("login"))
+
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
