@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row g-4">
+  <div class="col-md-6">
+    <div class="card p-4">
+      <h4>Spese veicoli</h4>
+      <form method="post" enctype="multipart/form-data" class="row g-2">
+        <div class="col-6">
+          <label class="form-label">Veicolo</label>
+          <select name="vehicle_id" class="form-select" required>
+            {% for v in vehicles %}<option value="{{ v.id }}">{{ v.plate }} - {{ v.description }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-6">
+          <label class="form-label">Data</label>
+          <input type="date" name="exp_date" class="form-control" value="{{ now.strftime('%Y-%m-%d') }}">
+        </div>
+        <div class="col-6">
+          <label class="form-label">Tipo</label>
+          <select name="exp_type" class="form-select">
+            <option>CARBURANTE</option><option>PEDAGGIO</option><option>PARCHEGGIO</option><option>ALTRO</option>
+          </select>
+        </div>
+        <div class="col-6">
+          <label class="form-label">Importo</label>
+          <input type="number" step="0.01" class="form-control" name="amount" required>
+        </div>
+        <div class="col-12">
+          <label class="form-label">Ricevuta (foto/pdf)</label>
+          <input type="file" name="receipt" class="form-control">
+        </div>
+        <div class="col-12 mt-2"><button class="btn btn-primary">Registra</button></div>
+      </form>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card p-4">
+      <h4>Ultime spese</h4>
+      <table class="table table-sm">
+        <thead><tr><th>Data</th><th>Veicolo</th><th>Tipo</th><th>€</th></tr></thead>
+        <tbody>
+          {% for r in rows %}
+          <tr>
+            <td>{{ r.exp_date.strftime('%d/%m/%Y') }}</td>
+            <td>{{ r.vehicle.plate }}</td>
+            <td>{{ r.exp_type }}</td>
+            <td>{{ '%.2f'|format(r.amount) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

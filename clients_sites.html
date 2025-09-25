@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+  <h2 class="mb-3">Clienti & Cantieri</h2>
+
+  <div class="row g-4">
+    <!-- Nuovo cliente -->
+    <div class="col-md-6">
+      <div class="card shadow-sm">
+        <div class="card-header">Nuovo cliente</div>
+        <div class="card-body">
+          <form method="post" action="{{ url_for('clients_sites') }}">
+            <input type="hidden" name="kind" value="client">
+            <div class="input-group">
+              <input name="name" class="form-control" placeholder="Nome cliente" required>
+              <button class="btn btn-primary">Aggiungi</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="card shadow-sm mt-3">
+        <div class="card-header">Elenco clienti</div>
+        <div class="card-body table-responsive">
+          <table class="table align-middle">
+            <thead>
+              <tr><th>ID</th><th>Nome</th><th style="width:1%"></th></tr>
+            </thead>
+            <tbody>
+            {% for c in clients %}
+              <tr>
+                <td>{{ c.id }}</td>
+                <td>{{ c.name }}</td>
+                <td class="text-end">
+                  <form method="post" action="{{ url_for('delete_clients_sites', kind='client', oid=c.id) }}" onsubmit="return confirm('Eliminare il cliente?');">
+                    <button class="btn btn-sm btn-danger">Elimina</button>
+                  </form>
+                </td>
+              </tr>
+            {% else %}
+              <tr><td colspan="3" class="text-muted">Nessun cliente.</td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Nuovo cantiere -->
+    <div class="col-md-6">
+      <div class="card shadow-sm">
+        <div class="card-header">Nuovo cantiere</div>
+        <div class="card-body">
+          <form method="post" action="{{ url_for('clients_sites') }}" class="row g-2">
+            <input type="hidden" name="kind" value="site">
+            <div class="col-md-6">
+              <input name="name" class="form-control" placeholder="Nome cantiere" required>
+            </div>
+            <div class="col-md-6">
+              <select name="client_id" class="form-select" required>
+                <option value="">— Cliente —</option>
+                {% for c in clients %}
+                  <option value="{{ c.id }}">{{ c.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <button class="btn btn-primary">Aggiungi</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="card shadow-sm mt-3">
+        <div class="card-header">Elenco cantieri</div>
+        <div class="card-body table-responsive">
+          <table class="table align-middle">
+            <thead>
+              <tr><th>ID</th><th>Nome</th><th>Cliente</th><th style="width:1%"></th></tr>
+            </thead>
+            <tbody>
+            {% for s in sites %}
+              <tr>
+                <td>{{ s.id }}</td>
+                <td>{{ s.name }}</td>
+                <td>{{ s.client.name if s.client }}</td>
+                <td class="text-end">
+                  <form method="post" action="{{ url_for('delete_clients_sites', kind='site', oid=s.id) }}" onsubmit="return confirm('Eliminare il cantiere?');">
+                    <button class="btn btn-sm btn-danger">Elimina</button>
+                  </form>
+                </td>
+              </tr>
+            {% else %}
+              <tr><td colspan="4" class="text-muted">Nessun cantiere.</td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

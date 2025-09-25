@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+  <h2 class="mb-3">Catalogo attività</h2>
+
+  <!-- Nuova attività -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header">Nuova attività</div>
+    <div class="card-body">
+      <form method="post" action="{{ url_for('catalogo') }}" class="row g-2">
+        <div class="col-md-2"><input name="code" class="form-control" placeholder="Codice" required></div>
+        <div class="col-md-4"><input name="description" class="form-control" placeholder="Descrizione" required></div>
+        <div class="col-md-2"><input name="unit" class="form-control" placeholder="UM (es. mq)" required></div>
+        <div class="col-md-2"><input name="unit_price" type="number" step="0.01" min="0" class="form-control" placeholder="Prezzo unit." required></div>
+        <div class="col-md-2"><button class="btn btn-primary w-100">Aggiungi</button></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Assegna attività a cantiere (con ID numerici) -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header">Assegna attività a cantiere</div>
+    <div class="card-body">
+      <form method="post" action="{{ url_for('assign_activity') }}" class="row g-2">
+        <div class="col-md-3">
+          <input name="site_id" type="number" min="1" class="form-control" placeholder="ID Cantiere" required>
+          <div class="form-text">ID cantiere visibile nella pagina “Clienti & Cantieri”.</div>
+        </div>
+        <div class="col-md-3">
+          <input name="activity_id" type="number" min="1" class="form-control" placeholder="ID Attività" required>
+          <div class="form-text">ID dall’elenco attività qui sotto.</div>
+        </div>
+        <div class="col-md-3">
+          <input name="initial_qty" type="number" step="0.01" min="0" class="form-control" placeholder="Quantità iniziale" value="0">
+        </div>
+        <div class="col-md-3">
+          <button class="btn btn-outline-primary w-100">Assegna</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Elenco attività -->
+  <div class="card shadow-sm">
+    <div class="card-header">Elenco attività</div>
+    <div class="card-body table-responsive">
+      <table class="table align-middle">
+        <thead>
+          <tr>
+            <th>ID</th><th>Codice</th><th>Descrizione</th><th>UM</th><th>Prezzo</th><th style="width:1%"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for i in items %}
+          <tr>
+            <td>{{ i.id }}</td>
+            <td>{{ i.code }}</td>
+            <td>{{ i.description }}</td>
+            <td>{{ i.unit }}</td>
+            <td>€ {{ '%.2f'|format(i.unit_price or 0) }}</td>
+            <td class="text-end">
+              <form method="post" action="{{ url_for('delete_catalogo', aid=i.id) }}" onsubmit="return confirm('Eliminare?');">
+                <button class="btn btn-sm btn-danger">Elimina</button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="text-muted">Nessuna attività.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row g-4">
+  <div class="col-md-6">
+    <div class="card p-4">
+      <h5>I miei cantieri</h5>
+      <ul class="list-group list-group-flush">
+        {% for s in sites %}
+        <li class="list-group-item bg-transparent text-light">{{ s.name }} <span class="badge bg-secondary">{{ s.client.name }}</span></li>
+        {% else %}
+        <li class="list-group-item bg-transparent text-light">Nessun cantiere assegnato</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card p-4">
+      <h5>Azioni rapide</h5>
+      <a class="btn btn-primary me-2" href="{{ url_for('capo_attivita') }}">Inserisci attività</a>
+      <a class="btn btn-outline-light me-2" href="{{ url_for('capo_spese') }}">Spese cantiere</a>
+      <a class="btn btn-outline-light" href="{{ url_for('capo_spese_veicoli') }}">Spese veicoli</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+  <h2 class="mb-3">Veicoli</h2>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-header">Nuovo veicolo</div>
+    <div class="card-body">
+      <form method="post" action="{{ url_for('vehicles') }}" class="row g-2">
+        <div class="col-md-3"><input name="plate" class="form-control" placeholder="Targa" required></div>
+        <div class="col-md-5"><input name="description" class="form-control" placeholder="Descrizione"></div>
+        <div class="col-md-3">
+          <select name="site_id" class="form-select">
+            <option value="">— Cantiere (opzionale) —</option>
+            {% for s in sites %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-md-1"><button class="btn btn-primary w-100">Aggiungi</button></div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-header">Elenco veicoli</div>
+    <div class="card-body table-responsive">
+      <table class="table align-middle">
+        <thead><tr><th>ID</th><th>Targa</th><th>Descrizione</th><th>Cantiere</th><th style="width:1%"></th></tr></thead>
+        <tbody>
+        {% for v in vehicles %}
+          <tr>
+            <td>{{ v.id }}</td>
+            <td>{{ v.plate }}</td>
+            <td>{{ v.description or '' }}</td>
+            <td>{{ v.site.name if v.site }}</td>
+            <td class="text-end">
+              <form method="post" action="{{ url_for('delete_vehicle', vid=v.id) }}" onsubmit="return confirm('Eliminare veicolo?');">
+                <button class="btn btn-sm btn-danger">Elimina</button>
+              </form>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5" class="text-muted">Nessun veicolo.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

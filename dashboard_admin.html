@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row g-4">
+  <div class="col-md-4">
+    <div class="card p-4">
+      <h5>Alert attrezzatura</h5>
+      <p class="display-6">{{ unread }}</p>
+      <a href="{{ url_for('equipment') }}" class="btn btn-sm btn-outline-light">Vai</a>
+    </div>
+  </div>
+  <div class="col-md-8">
+    <div class="card p-4">
+      <h5>Benvenuto, Admin</h5>
+      <p>Usa il menu per gestire clienti, cantieri, attività, utenti, veicoli, attrezzature e report.</p>
+    </div>
+  </div>
+</div>
+{% endblock %}
