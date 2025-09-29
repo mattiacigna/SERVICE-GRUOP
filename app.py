@@ -1,6 +1,7 @@
 import os
 import io
 from datetime import datetime, date, timedelta
+from collections import defaultdict
 
 from flask import (
     Flask, render_template, request, redirect, url_for,
@@ -124,7 +125,7 @@ class ActivityEntry(db.Model):
     work_date = db.Column(db.Date, nullable=False, default=date.today)
     qty = db.Column(db.Float, nullable=False, default=0.0)
     note = db.Column(db.String(255))
-    photo_path = db.Column(db.String(255))  # capo può caricare foto (auto-patched se mancante)
+    photo_path = db.Column(db.String(255))  # opzionale: prima foto al momento dell'inserimento
     user = db.relationship("User")
     site = db.relationship("Site")
     client_activity = db.relationship("ClientActivity")
@@ -181,6 +182,15 @@ class Alert(db.Model):
     message = db.Column(db.String(255), nullable=False)
     is_read = db.Column(db.Boolean, default=False)
 
+# >>> FOTO ATTIVITÀ: modello dedicato (MULTI-FOTO) <<<
+class ActivityEntryPhoto(db.Model):
+    __tablename__ = "activity_entry_photos"
+    id = db.Column(db.Integer, primary_key=True)
+    entry_id = db.Column(db.Integer, db.ForeignKey("activity_entries.id"), nullable=False)
+    path = db.Column(db.String(255), nullable=False)
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+
 # ------------------ Login ------------------
 @login_manager.user_loader
 def load_user(uid):
@@ -201,9 +211,28 @@ def save_upload(file_storage, prefix):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     file_storage.save(path)
     # Se UPLOAD_ROOT sta in /static, torna un path relativo servibile
-    if UPLOAD_ROOT.startswith(BASE_STATIC):
-        return f"uploads/{out}"
+    if os.path.commonpath([UPLOAD_ROOT, BASE_STATIC]) == BASE_STATIC:
+        return os.path.relpath(path, BASE_STATIC).replace("\\", "/")
     return path
+
+def resolve_upload_fullpath(stored_path: str) -> str:
+    """
+    Ritorna il path assoluto del file immagine salvato.
+    - Se `stored_path` è già assoluto, lo ritorna.
+    - Se è relativo (es. "uploads/..."), prova a risolverlo sotto /static.
+    - In alternativa prova a cercarlo sotto UPLOAD_ROOT.
+    """
+    if not stored_path:
+        return ""
+    if os.path.isabs(stored_path):
+        return stored_path
+    # Prova sotto /static
+    p1 = os.path.join(BASE_STATIC, stored_path)
+    if os.path.isfile(p1):
+        return p1
+    # Ultimo tentativo: UPLOAD_ROOT + basename
+    p2 = os.path.join(UPLOAD_ROOT, os.path.basename(stored_path))
+    return p2
 
 # ------------------ Auto-migrazioni SQLite (compatibile SQLAlchemy 2.x) ------------------
 def has_column(table: str, col: str) -> bool:
@@ -229,7 +258,7 @@ def ensure_sqlite_columns():
             conn.execute(text("ALTER TABLE assignments ADD COLUMN start_date DATE"))
         if has_column("assignments", "id") and not has_column("assignments", "end_date"):
             conn.execute(text("ALTER TABLE assignments ADD COLUMN end_date DATE"))
-        # activity_entries.photo_path
+        # activity_entries.photo_path (prima foto opzionale)
         if has_column("activity_entries", "id") and not has_column("activity_entries", "photo_path"):
             conn.execute(text("ALTER TABLE activity_entries ADD COLUMN photo_path TEXT"))
         try:
@@ -627,11 +656,31 @@ def capo_attivita():
 
     site_ids = [a.site_id for a in my_assignments]
     assigned_ca = ClientActivity.query.filter(ClientActivity.site_id.in_(site_ids)).all() if site_ids else []
-    entries = ActivityEntry.query.order_by(ActivityEntry.work_date.desc(), ActivityEntry.id.desc())
+
+    q = ActivityEntry.query.order_by(ActivityEntry.work_date.desc(), ActivityEntry.id.desc())
     if not is_admin():
-        entries = entries.filter(ActivityEntry.user_id == current_user.id)
-    entries = entries.limit(200).all()
-    return render_template("capo_attivita.html", assignments=my_assignments, assigned_ca=assigned_ca, entries=entries)
+        q = q.filter(ActivityEntry.user_id == current_user.id)
+    entries = q.limit(200).all()
+
+    # ---- anteprime foto per le entry in elenco ----
+    entry_photos = {}
+    if entries:
+        ids = [e.id for e in entries]
+        photos = ActivityEntryPhoto.query.filter(ActivityEntryPhoto.entry_id.in_(ids))\
+                                         .order_by(ActivityEntryPhoto.uploaded_at.desc()).all()
+        tmp = defaultdict(list)
+        for p in photos:
+            tmp[p.entry_id].append(p)
+        entry_photos = dict(tmp)
+    # -----------------------------------------------
+
+    return render_template(
+        "capo_attivita.html",
+        assignments=my_assignments,
+        assigned_ca=assigned_ca,
+        entries=entries,
+        entry_photos=entry_photos
+    )
 
 @app.route("/capo/attivita/<int:eid>/delete", methods=["POST"])
 @login_required
@@ -642,6 +691,31 @@ def delete_entry(eid):
     db.session.delete(e); db.session.commit()
     flash("Eliminato", "success")
     return redirect(url_for("capo_attivita"))
+
+# --- Aggiungi foto extra ad una entry già creata ---
+@app.route("/capo/attivita/<int:eid>/photo", methods=["POST"])
+@login_required
+def capo_attivita_photo_add(eid):
+    e = ActivityEntry.query.get_or_404(eid)
+    if not is_admin() and e.user_id != current_user.id:
+        flash("Operazione non consentita", "danger")
+        return redirect(url_for("capo_attivita"))
+
+    files = request.files.getlist("photos")  # <input name="photos" multiple>
+    saved = 0
+    for f in files:
+        p = save_upload(f, f"ACT{e.id}")
+        if p:
+            db.session.add(ActivityEntryPhoto(entry_id=e.id, path=p))
+            saved += 1
+
+    if saved:
+        db.session.commit()
+        flash(f"{saved} foto caricate", "success")
+    else:
+        flash("Nessuna foto valida", "warning")
+
+    return redirect(url_for("capo_attivita_edit", eid=e.id))
 
 # ------------------ Capo: Attività EXTRA (con foto) ------------------
 @app.route("/capo/attivita-extra", methods=["GET","POST"])
@@ -872,9 +946,6 @@ def export_attivita():
     ws.append(["","", "Totale Attività Catalogo", "", "", "", total])
     ws.append(["","", "Totale Attività Extra", "", "", "", extra_tot])
     ws.append(["","", "TOTALE COMPLESSIVO", "", "", "", total + extra_tot])
-    for i in range(3,8,3):
-        ws.cell(row=ws.max_row, column=3).font = Font(bold=True)
-        ws.cell(row=ws.max_row-1, column=3).font = Font(bold=True)
 
     buf = io.BytesIO(); wb.save(buf); buf.seek(0)
     filename = f"attivita_{sdate.strftime('%Y%m%d')}_{edate.strftime('%Y%m%d')}.xlsx"
@@ -925,35 +996,79 @@ def export_spese_cantiere():
     filename = f"spese_cantiere_{sdate.strftime('%Y%m%d')}_{edate.strftime('%Y%m%d')}.xlsx"
     return send_file(buf, as_attachment=True, download_name=filename, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
+# ------------------ Edit attività (qty/note) + gestione foto ------------------
+@app.route("/capo/attivita/<int:eid>/edit", methods=["GET","POST"])
+@login_required
+def capo_attivita_edit(eid):
+    e = ActivityEntry.query.get_or_404(eid)
+    # permessi: admin o autore
+    if not is_admin() and e.user_id != current_user.id:
+        flash("Operazione non consentita", "danger")
+        return redirect(url_for("capo_attivita"))
+
+    if request.method == "POST":
+        old_qty = float(e.qty or 0.0)
+        old_note = e.note or ""
+
+        # campi modificabili: qty, note (work_date resta invariabile)
+        new_qty = request.form.get("qty", type=float)
+        new_note = (request.form.get("note","").strip() or None)
+
+        # carica 1..n foto aggiuntive
+        files = request.files.getlist("photos")
+        saved_any = False
+        for f in files:
+            p = save_upload(f, f"ACT{e.id}")
+            if p:
+                db.session.add(ActivityEntryPhoto(entry_id=e.id, path=p))
+                saved_any = True
+
+        # flag per backdating: modifica su data passata
+        backdated_change = (e.work_date < date.today()) and ((new_qty is not None and new_qty != old_qty) or ((new_note or "") != old_note))
+
+        if new_qty is not None:
+            e.qty = new_qty
+        e.note = new_note
+
+        if backdated_change:
+            db.session.add(Alert(message=f"MODIFICA RETROATTIVA: attività #{e.id} del {e.work_date.isoformat()} modificata da {current_user.username} (qty {old_qty}→{e.qty})"))
+
+        db.session.commit()
+        msg = "Attività aggiornata"
+        if saved_any: msg += " e foto aggiunte"
+        flash(msg, "success")
+        return redirect(url_for("capo_attivita"))
+
+    photos = ActivityEntryPhoto.query.filter_by(entry_id=e.id).order_by(ActivityEntryPhoto.uploaded_at.desc()).all()
+    return render_template("capo_attivita_edit.html", entry=e, photos=photos)
+
+@app.route("/capo/attivita/photo/<int:pid>/delete", methods=["POST"])
+@login_required
+def capo_attivita_photo_delete(pid):
+    p = ActivityEntryPhoto.query.get_or_404(pid)
+    e = ActivityEntry.query.get_or_404(p.entry_id)
+
+    if not is_admin() and e.user_id != current_user.id:
+        flash("Operazione non consentita", "danger")
+        return redirect(url_for("capo_attivita"))
+
+    # rimuovi anche il file dal disco (se esiste)
+    try:
+        full = resolve_upload_fullpath(p.path)
+        if full and os.path.isfile(full):
+            os.remove(full)
+    except Exception:
+        pass
+
+    db.session.delete(p)
+    db.session.commit()
+    flash("Foto eliminata", "success")
+    return redirect(url_for("capo_attivita_edit", eid=e.id))
+
 # ------------------ Template helpers ------------------
 @app.context_processor
 def inject_now():
     return {"now": datetime.now(), "timedelta": timedelta, "date": date}
-
-@app.context_processor
-def url_for_positional_adapter():
-    def url_for_fix(endpoint, *args, **kwargs):
-        if args:
-            try:
-                if endpoint == "delete_clients_sites" and len(args) == 2:
-                    kind, oid = args
-                    return url_for(endpoint, kind=kind, oid=oid)
-                if endpoint == "delete_catalogo" and len(args) == 1:
-                    (aid,) = args
-                    return url_for(endpoint, aid=aid)
-                if endpoint == "delete_user" and len(args) == 1:
-                    (uid,) = args
-                    return url_for(endpoint, uid=uid)
-                if endpoint == "delete_vehicle" and len(args) == 1:
-                    (vid,) = args
-                    return url_for(endpoint, vid=vid)
-                if endpoint == "equipment_delete" and len(args) == 1:
-                    (eid,) = args
-                    return url_for(endpoint, eid=eid)
-            except Exception:
-                pass
-        return url_for(endpoint, **kwargs)
-    return dict(url_for=url_for_fix)
 
 @app.context_processor
 def url_for_positional_adapter():
@@ -968,7 +1083,7 @@ def url_for_positional_adapter():
         if endpoint in alias:
             return url_for(alias[endpoint], **kwargs)
 
-        # mapping già esistente per gli endpoint con parametri posizionali
+        # mapping esistente per endpoint con parametri posizionali
         if args:
             try:
                 if endpoint == "delete_clients_sites" and len(args) == 2:
