@@ -1,0 +1,66 @@
+{% extends "_layout.html" %}
+{% block title %}Attività giornaliere{% endblock %}
+
+{% block content %}
+<h1 class="h4 mb-3">Attività giornaliere</h1>
+
+{# Se hai anche un form di inserimento attività qui sopra, lascialo com'è #}
+
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Data</th>
+            <th>Cantiere</th>
+            <th>Attività</th>
+            <th class="text-end">Q.tà</th>
+            <th>Nota</th>
+            <th>Foto</th>
+            <th class="text-end">Azioni</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for e in entries %}
+          <tr>
+            <td>{{ e.work_date.strftime("%Y-%m-%d") }}</td>
+            <td>{{ e.site.name }}</td>
+            <td>{{ e.client_activity.activity.code }} – {{ e.client_activity.activity.description }}</td>
+            <td class="text-end">{{ "%.2f"|format(e.qty or 0) }}</td>
+            <td>{{ e.note or "" }}</td>
+            <td style="max-width:160px;">
+              {% if entry_photos and entry_photos.get(e.id) %}
+                <div class="d-flex gap-1 flex-wrap">
+                  {% for p in entry_photos[e.id][:3] %}
+                    {% set is_img = p.path.lower().endswith(('.png','.jpg','.jpeg','.webp','.gif')) %}
+                    {% if is_img %}
+                      <img src="{{ url_for('static', filename='uploads/' ~ p.path) }}" alt="foto" style="width:48px;height:48px;object-fit:cover;border-radius:.5rem;border:1px solid #ddd;">
+                    {% else %}
+                      <span class="badge text-bg-secondary">PDF</span>
+                    {% endif %}
+                  {% endfor %}
+                  {% if entry_photos[e.id]|length > 3 %}
+                    <span class="badge text-bg-light">+{{ entry_photos[e.id]|length - 3 }}</span>
+                  {% endif %}
+                </div>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              <a class="btn btn-sm btn-outline-primary" href="{{ url_for('capo_attivita_edit', eid=e.id) }}">Modifica</a>
+              <form class="d-inline" action="{{ url_for('delete_entry', eid=e.id) }}" method="post" onsubmit="return confirm('Eliminare questa riga?');">
+                <button class="btn btn-sm btn-outline-danger">Elimina</button>
+              </form>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="7" class="text-center text-muted py-4">Nessuna attività registrata</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

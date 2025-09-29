@@ -1,75 +1,62 @@
 {% extends "_layout.html" %}
-{% block content %}
-<div class="row">
-  <div class="col-lg-5">
-    <div class="card p-4">
-      <h5>Registra attività</h5>
-      <form method="post" enctype="multipart/form-data">
-        <div class="mb-2">
-          <label class="form-label">Data</label>
-          <input type="date" class="form-control" name="work_date" value="{{ date.today() }}">
-        </div>
-        <div class="mb-2">
-          <label class="form-label">Cantiere</label>
-          <select class="form-select" name="site_id" required>
-            <option value="">—</option>
-            {% for a in assignments %}
-              <option value="{{ a.site.id }}">{{ a.site.name }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="mb-2">
-          <label class="form-label">Attività</label>
-          <select class="form-select" name="client_activity_id" required>
-            <option value="">—</option>
-            {% for ca in assigned_ca %}
-              <option value="{{ ca.id }}">{{ ca.site.name }} — {{ ca.activity.code }} / {{ ca.activity.description }} ({{ ca.activity.unit }})</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="mb-2">
-          <label class="form-label">Quantità</label>
-          <input class="form-control" name="qty" type="number" step="0.01" min="0" value="0">
-        </div>
-        <div class="mb-2">
-          <label class="form-label">Note</label>
-          <input class="form-control" name="note">
-        </div>
-        <div class="mb-3">
-          <label class="form-label">Foto (opzionale)</label>
-          <input class="form-control" type="file" name="photo" accept="image/*,application/pdf">
-        </div>
-        <button class="btn btn-primary w-100">Salva</button>
-      </form>
-    </div>
-  </div>
+{% block title %}Attività giornaliere{% endblock %}
 
-  <div class="col-lg-7">
-    <div class="card p-4">
-      <h5>Ultime registrazioni</h5>
-      <table class="table align-middle">
-        <thead><tr><th>Data</th><th>Cantiere</th><th>Attività</th><th>Q.tà</th><th>Foto</th><th class="text-end">Azioni</th></tr></thead>
+{% block content %}
+<h1 class="h4 mb-3">Attività giornaliere</h1>
+
+{# Se hai anche un form di inserimento attività qui sopra, lascialo com'è #}
+
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Data</th>
+            <th>Cantiere</th>
+            <th>Attività</th>
+            <th class="text-end">Q.tà</th>
+            <th>Nota</th>
+            <th>Foto</th>
+            <th class="text-end">Azioni</th>
+          </tr>
+        </thead>
         <tbody>
         {% for e in entries %}
           <tr>
-            <td>{{ e.work_date }}</td>
+            <td>{{ e.work_date.strftime("%Y-%m-%d") }}</td>
             <td>{{ e.site.name }}</td>
-            <td>{{ e.client_activity.activity.code }} — {{ e.client_activity.activity.description }}</td>
-            <td>{{ e.qty }} {{ e.client_activity.activity.unit }}</td>
-            <td>
-              {% if e.photo_path %}
-                <a href="{{ url_for('static', filename=e.photo_path) }}" target="_blank">Apri</a>
-              {% else %}-{% endif %}
+            <td>{{ e.client_activity.activity.code }} – {{ e.client_activity.activity.description }}</td>
+            <td class="text-end">{{ "%.2f"|format(e.qty or 0) }}</td>
+            <td>{{ e.note or "" }}</td>
+            <td style="max-width:160px;">
+              {% if entry_photos and entry_photos.get(e.id) %}
+                <div class="d-flex gap-1 flex-wrap">
+                  {% for p in entry_photos[e.id][:3] %}
+                    {% set is_img = p.path.lower().endswith(('.png','.jpg','.jpeg','.webp','.gif')) %}
+                    {% if is_img %}
+                      <img src="{{ url_for('static', filename='uploads/' ~ p.path) }}" alt="foto" style="width:48px;height:48px;object-fit:cover;border-radius:.5rem;border:1px solid #ddd;">
+                    {% else %}
+                      <span class="badge text-bg-secondary">PDF</span>
+                    {% endif %}
+                  {% endfor %}
+                  {% if entry_photos[e.id]|length > 3 %}
+                    <span class="badge text-bg-light">+{{ entry_photos[e.id]|length - 3 }}</span>
+                  {% endif %}
+                </div>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
             </td>
             <td class="text-end">
-              <form method="post" action="{{ url_for('delete_entry', eid=e.id) }}"
-                    onsubmit="return confirm('Eliminare registrazione?')">
+              <a class="btn btn-sm btn-outline-primary" href="{{ url_for('capo_attivita_edit', eid=e.id) }}">Modifica</a>
+              <form class="d-inline" action="{{ url_for('delete_entry', eid=e.id) }}" method="post" onsubmit="return confirm('Eliminare questa riga?');">
                 <button class="btn btn-sm btn-outline-danger">Elimina</button>
               </form>
             </td>
           </tr>
         {% else %}
-          <tr><td colspan="6" class="text-muted">Nessuna registrazione</td></tr>
+          <tr><td colspan="7" class="text-center text-muted py-4">Nessuna attività registrata</td></tr>
         {% endfor %}
         </tbody>
       </table>
