@@ -1,7 +1,6 @@
 import os
 import io
 from datetime import datetime, date, timedelta
-from collections import defaultdict
 
 from flask import (
     Flask, render_template, request, redirect, url_for,
@@ -12,7 +11,7 @@ from flask_login import (
     LoginManager, login_user, login_required, logout_user,
     current_user, UserMixin
 )
-from sqlalchemy import func, or_
+from sqlalchemy import func, text, inspect
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
@@ -20,19 +19,17 @@ from openpyxl import Workbook
 from openpyxl.styles import Font
 
 # ------------------ App config ------------------
-# Se i template/static sono nella stessa cartella del file, non serve specificare i folder.
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("APP_SECRET_KEY", "dev-secret")
-# Consente persistenza su Render se imposti DATABASE_URL (es. sqlite:////var/data/data.db)
+
+# Usa DATABASE_URL su Render se presente, altrimenti sqlite locale
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///data.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 BASE_DIR = os.path.dirname(__file__)
 BASE_STATIC = os.path.join(BASE_DIR, "static")
-# Se su Render imposti UPLOAD_ROOT=/var/data/uploads li rende persistenti
 UPLOAD_ROOT = os.environ.get("UPLOAD_ROOT", os.path.join(BASE_STATIC, "uploads"))
-UPLOAD_DIR = UPLOAD_ROOT
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+os.makedirs(UPLOAD_ROOT, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp", "gif", "pdf"}
 def allowed_file(name: str) -> bool:
@@ -58,86 +55,117 @@ class User(db.Model, UserMixin):
         return check_password_hash(self.password_hash, p)
 
 class Client(db.Model):
+    __tablename__ = "clients"
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), unique=True, nullable=False)
+    note = db.Column(db.String(255))  # auto-patched se mancante
 
-class Site(db.Model):  # cantiere
+class Site(db.Model):
+    __tablename__ = "sites"
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
-    client_id = db.Column(db.Integer, db.ForeignKey("client.id"), nullable=False)
+    address = db.Column(db.String(255))  # auto-patched se mancante
+    is_confirmed = db.Column(db.Integer, default=0)  # 0/1; auto-patched se mancante
+    client_id = db.Column(db.Integer, db.ForeignKey("clients.id"), nullable=False)
     client = db.relationship("Client")
 
 class ActivityCatalog(db.Model):
+    __tablename__ = "activity_catalog"
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String(40), nullable=False, unique=True)
     description = db.Column(db.String(255), nullable=False)
-    unit = db.Column(db.String(20), nullable=False)  # unità di misura
-    unit_price = db.Column(db.Float, nullable=False, default=0.0)
+    unit = db.Column(db.String(20), nullable=False)
+    unit_price = db.Column(db.Float, nullable=False, default=0.0)  # admin può impostare
 
 class ClientActivity(db.Model):
-    """Attività assegnata ad un cantiere (tipologia + quantità iniziale)"""
+    __tablename__ = "client_activity"
     id = db.Column(db.Integer, primary_key=True)
-    site_id = db.Column(db.Integer, db.ForeignKey("site.id"), nullable=False)
+    site_id = db.Column(db.Integer, db.ForeignKey("sites.id"), nullable=False)
     activity_id = db.Column(db.Integer, db.ForeignKey("activity_catalog.id"), nullable=False)
     initial_qty = db.Column(db.Float, default=0.0)
-
     site = db.relationship("Site")
     activity = db.relationship("ActivityCatalog")
 
 class Vehicle(db.Model):
+    __tablename__ = "vehicles"
     id = db.Column(db.Integer, primary_key=True)
     plate = db.Column(db.String(20), unique=True, nullable=False)
     description = db.Column(db.String(120))
-    site_id = db.Column(db.Integer, db.ForeignKey("site.id"))
+    site_id = db.Column(db.Integer, db.ForeignKey("sites.id"))
     site = db.relationship("Site")
 
 class Equipment(db.Model):
+    __tablename__ = "equipment"
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String(40), unique=True, nullable=False)
     description = db.Column(db.String(255), nullable=False)
     qty = db.Column(db.Integer, default=1)
-    status = db.Column(db.String(20), default="disponibile")  # disponibile, occupato, rotto, manutenzione
-    site_id = db.Column(db.Integer, db.ForeignKey("site.id"))
+    status = db.Column(db.String(20), default="disponibile")
+    site_id = db.Column(db.Integer, db.ForeignKey("sites.id"))
     site = db.relationship("Site")
 
 class Assignment(db.Model):
-    """Associazione capocantiere -> cantieri/veicoli/attrezzature (a livello cantiere)"""
+    __tablename__ = "assignments"
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    site_id = db.Column(db.Integer, db.ForeignKey("site.id"), nullable=False)
+    site_id = db.Column(db.Integer, db.ForeignKey("sites.id"), nullable=False)
+    start_date = db.Column(db.Date)  # auto-patched se mancante
+    end_date = db.Column(db.Date)    # auto-patched se mancante
     user = db.relationship("User")
     site = db.relationship("Site")
 
 class ActivityEntry(db.Model):
-    """Rilevazione giornaliera quantità lavorata"""
+    """Rilevazione giornaliera quantità lavorata (capo)"""
+    __tablename__ = "activity_entries"
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)  # chi inserisce
-    site_id = db.Column(db.Integer, db.ForeignKey("site.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    site_id = db.Column(db.Integer, db.ForeignKey("sites.id"), nullable=False)
     client_activity_id = db.Column(db.Integer, db.ForeignKey("client_activity.id"), nullable=False)
     work_date = db.Column(db.Date, nullable=False, default=date.today)
     qty = db.Column(db.Float, nullable=False, default=0.0)
     note = db.Column(db.String(255))
-
+    photo_path = db.Column(db.String(255))  # capo può caricare foto (auto-patched se mancante)
     user = db.relationship("User")
     site = db.relationship("Site")
     client_activity = db.relationship("ClientActivity")
 
-class SiteExpense(db.Model):
+class ExtraActivity(db.Model):
+    """
+    Attività Extra (non a catalogo), inserita dal capo con foto.
+    L'admin può 'quotare' (unit_price) prima di includerla nei report.
+    """
+    __tablename__ = "extra_activities"
     id = db.Column(db.Integer, primary_key=True)
-    site_id = db.Column(db.Integer, db.ForeignKey("site.id"), nullable=False)
+    site_id = db.Column(db.Integer, db.ForeignKey("sites.id"), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    exp_type = db.Column(db.String(120), nullable=False)  # testo libero
-    amount = db.Column(db.Float, nullable=False)
-    payment_type = db.Column(db.String(40))  # contanti/pos/bonifico/altro
-    exp_date = db.Column(db.Date, default=date.today, nullable=False)
-    receipt_path = db.Column(db.String(255))
+    work_date = db.Column(db.Date, nullable=False, default=date.today)
+    description = db.Column(db.String(255), nullable=False)
+    unit = db.Column(db.String(20), nullable=False, default="u")
+    qty = db.Column(db.Float, nullable=False, default=1.0)
+    photo_path = db.Column(db.String(255))
+    unit_price = db.Column(db.Float)  # se None => non ancora quotata
+    approved = db.Column(db.Boolean, default=False)
 
     site = db.relationship("Site")
     user = db.relationship("User")
 
-class VehicleExpense(db.Model):
+class SiteExpense(db.Model):
+    __tablename__ = "site_expenses"
     id = db.Column(db.Integer, primary_key=True)
-    vehicle_id = db.Column(db.Integer, db.ForeignKey("vehicle.id"), nullable=False)
+    site_id = db.Column(db.Integer, db.ForeignKey("sites.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    exp_type = db.Column(db.String(120), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    payment_type = db.Column(db.String(40))
+    exp_date = db.Column(db.Date, default=date.today, nullable=False)
+    receipt_path = db.Column(db.String(255))
+    site = db.relationship("Site")
+    user = db.relationship("User")
+
+class VehicleExpense(db.Model):
+    __tablename__ = "vehicle_expenses"
+    id = db.Column(db.Integer, primary_key=True)
+    vehicle_id = db.Column(db.Integer, db.ForeignKey("vehicles.id"), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     exp_type = db.Column(db.String(40), nullable=False)  # CARBURANTE/PEDAGGIO/PARCHEGGIO
     amount = db.Column(db.Float, nullable=False)
@@ -147,6 +175,7 @@ class VehicleExpense(db.Model):
     user = db.relationship("User")
 
 class Alert(db.Model):
+    __tablename__ = "alerts"
     id = db.Column(db.Integer, primary_key=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     message = db.Column(db.String(255), nullable=False)
@@ -155,7 +184,6 @@ class Alert(db.Model):
 # ------------------ Login ------------------
 @login_manager.user_loader
 def load_user(uid):
-    # In SQLAlchemy 2.x Query.get è legacy ma funziona; potresti migrare a Session.get se vuoi.
     return User.query.get(int(uid))
 
 # ------------------ Helpers ------------------
@@ -169,44 +197,87 @@ def save_upload(file_storage, prefix):
     if not allowed_file(fname):
         return None
     out = f"{prefix}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{fname}"
-    path = os.path.join(UPLOAD_DIR, out)
+    path = os.path.join(UPLOAD_ROOT, out)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     file_storage.save(path)
-    # Percorso relativo servibile da static se UPLOAD_DIR sta in static, altrimenti resta un path generico
-    return f"{out}" if UPLOAD_DIR.startswith(BASE_STATIC) else path
+    # Se UPLOAD_ROOT sta in /static, torna un path relativo servibile
+    if UPLOAD_ROOT.startswith(BASE_STATIC):
+        return f"uploads/{out}"
+    return path
 
-# ------------------ Init DB ------------------
+# ------------------ Auto-migrazioni SQLite (compatibile SQLAlchemy 2.x) ------------------
+def has_column(table: str, col: str) -> bool:
+    insp = inspect(db.engine)
+    try:
+        return col in [c["name"] for c in insp.get_columns(table)]
+    except Exception:
+        return False
+
+def ensure_sqlite_columns():
+    with db.engine.connect() as conn:
+        # clients.note
+        if has_column("clients", "id") and not has_column("clients", "note"):
+            conn.execute(text("ALTER TABLE clients ADD COLUMN note TEXT"))
+        # sites.address
+        if has_column("sites", "id") and not has_column("sites", "address"):
+            conn.execute(text("ALTER TABLE sites ADD COLUMN address TEXT"))
+        # sites.is_confirmed
+        if has_column("sites", "id") and not has_column("sites", "is_confirmed"):
+            conn.execute(text("ALTER TABLE sites ADD COLUMN is_confirmed INTEGER DEFAULT 0"))
+        # assignments.start_date / end_date
+        if has_column("assignments", "id") and not has_column("assignments", "start_date"):
+            conn.execute(text("ALTER TABLE assignments ADD COLUMN start_date DATE"))
+        if has_column("assignments", "id") and not has_column("assignments", "end_date"):
+            conn.execute(text("ALTER TABLE assignments ADD COLUMN end_date DATE"))
+        # activity_entries.photo_path
+        if has_column("activity_entries", "id") and not has_column("activity_entries", "photo_path"):
+            conn.execute(text("ALTER TABLE activity_entries ADD COLUMN photo_path TEXT"))
+        try:
+            conn.commit()
+        except Exception:
+            pass
+
+# ------------------ Demo seed ------------------
 def ensure_demo():
     db.create_all()
     if not User.query.filter_by(username="admin").first():
         admin = User(username="admin", role="admin", full_name="Amministratore")
         admin.set_password("admin")
         db.session.add(admin)
+    if not User.query.filter_by(username="capo").first():
+        capo = User(username="capo", role="capo", full_name="Mario Rossi")
+        capo.set_password("capo")
+        db.session.add(capo)
     if not Client.query.first():
         c = Client(name="Cliente Alpha")
         db.session.add(c)
-        s1 = Site(name="Cantiere Nord", client=c)
-        s2 = Site(name="Cantiere Sud", client=c)
+        s1 = Site(name="Cantiere Nord", client=c, address="Via Roma 1", is_confirmed=1)
+        s2 = Site(name="Cantiere Sud", client=c, address="Via Milano 2", is_confirmed=0)
         db.session.add_all([s1, s2])
     if not ActivityCatalog.query.first():
         db.session.add_all([
             ActivityCatalog(code="SCAVO", description="Scavo generale", unit="m3", unit_price=25),
             ActivityCatalog(code="MUR", description="Muratura", unit="mq", unit_price=45),
         ])
-    if not User.query.filter_by(username="capo").first():
-        u = User(username="capo", role="capo", full_name="Mario Rossi")
-        u.set_password("capo")
-        db.session.add(u)
     db.session.commit()
 
 with app.app_context():
     ensure_demo()
+    ensure_sqlite_columns()
 
-# ------------------ Routes (auth) ------------------
-@app.route("/")
+# ------------------ Routes: base/auth ------------------
+@app.route("/", endpoint="index")
 def index():
-    # Evita errore TemplateNotFound su Render se manca index.html
+    # Se i template aspettano index, li portiamo al login
     return redirect(url_for("login"))
+
+@app.route("/admin", endpoint="admin_home")
+@login_required
+def admin_home():
+    if not is_admin():
+        return redirect(url_for("dashboard"))
+    unread = Alert.query.filter_by(is_read=False).count()
+    return render_template("dashboard_admin.html", unread=unread)
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -234,7 +305,7 @@ def dashboard():
     if is_admin():
         unread = Alert.query.filter_by(is_read=False).count()
         return render_template("dashboard_admin.html", unread=unread)
-    # Capocantiere
+    # capo
     my_sites = (
         db.session.query(Site)
         .join(Assignment, Assignment.site_id == Site.id)
@@ -243,7 +314,7 @@ def dashboard():
     )
     return render_template("dashboard_capo.html", sites=my_sites)
 
-# ------------------ Admin: anagrafiche ------------------
+# ------------------ Admin: Clienti & Cantieri ------------------
 @app.route("/admin/clients-sites", methods=["GET","POST"])
 @login_required
 def clients_sites():
@@ -254,12 +325,15 @@ def clients_sites():
         if not name:
             flash("Nome obbligatorio", "warning"); return redirect(url_for("clients_sites"))
         if kind == "client":
-            db.session.add(Client(name=name))
+            note = request.form.get("note","").strip() or None
+            db.session.add(Client(name=name, note=note))
         elif kind == "site":
             client_id = request.form.get("client_id", type=int)
-            if not client_id: 
+            address = request.form.get("address","").strip() or None
+            is_confirmed = 1 if request.form.get("is_confirmed") == "1" else 0
+            if not client_id:
                 flash("Cliente obbligatorio per il cantiere", "warning"); return redirect(url_for("clients_sites"))
-            db.session.add(Site(name=name, client_id=client_id))
+            db.session.add(Site(name=name, client_id=client_id, address=address, is_confirmed=is_confirmed))
         db.session.commit()
         flash("Salvato", "success")
         return redirect(url_for("clients_sites"))
@@ -277,27 +351,58 @@ def delete_clients_sites(kind, oid):
     flash("Eliminato", "success")
     return redirect(url_for("clients_sites"))
 
-# ------------------ Admin: Catalogo attività e assegnazioni ------------------
+# ------------------ Admin: Catalogo (prezzo attività) & Assegnazioni ------------------
 @app.route("/admin/catalogo", methods=["GET","POST"])
 @login_required
 def catalogo():
-    if not is_admin(): return redirect(url_for("dashboard"))
+    if not is_admin():
+        return redirect(url_for("dashboard"))
+
     if request.method == "POST":
         code = request.form.get("code","").strip().upper()
         description = request.form.get("description","").strip()
         unit = request.form.get("unit","").strip()
         unit_price = request.form.get("unit_price", type=float) or 0.0
+
         if not code or not description or not unit:
             flash("Campi mancanti", "warning")
         else:
             if ActivityCatalog.query.filter_by(code=code).first():
                 flash("Codice già presente", "danger")
             else:
-                db.session.add(ActivityCatalog(code=code, description=description, unit=unit, unit_price=unit_price))
+                db.session.add(ActivityCatalog(
+                    code=code,
+                    description=description,
+                    unit=unit,
+                    unit_price=unit_price
+                ))
                 db.session.commit()
                 flash("Attività inserita", "success")
         return redirect(url_for("catalogo"))
-    return render_template("catalogo.html", items=ActivityCatalog.query.order_by(ActivityCatalog.code).all())
+
+    # aggiungo anche i cantieri per il template
+    sites = Site.query.join(Client).order_by(Site.name).all()
+
+    return render_template(
+        "catalogo.html",
+        items=ActivityCatalog.query.order_by(ActivityCatalog.code).all(),
+        sites=sites
+    )
+
+@app.route("/admin/catalogo/<int:aid>/prezzo", methods=["POST"])
+@login_required
+def update_prezzo_catalogo(aid):
+    """Admin aggiorna il valore economico (prezzo unitario) delle attività a catalogo"""
+    if not is_admin(): return redirect(url_for("dashboard"))
+    a = ActivityCatalog.query.get_or_404(aid)
+    unit_price = request.form.get("unit_price", type=float)
+    if unit_price is None:
+        flash("Prezzo non valido", "warning")
+    else:
+        a.unit_price = float(unit_price)
+        db.session.commit()
+        flash("Prezzo aggiornato", "success")
+    return redirect(url_for("catalogo"))
 
 @app.route("/admin/catalogo/<int:aid>/delete", methods=["POST"])
 @login_required
@@ -323,7 +428,7 @@ def assign_activity():
         flash("Assegnazione creata", "success")
     return redirect(url_for("catalogo"))
 
-# ------------------ Admin: Utenti e assegnazioni cantiere ------------------
+# ------------------ Admin: Utenti & Assegnazioni cantieri ------------------
 @app.route("/admin/users", methods=["GET","POST"])
 @login_required
 def users():
@@ -396,10 +501,16 @@ def assign_site():
     if not is_admin(): return redirect(url_for("dashboard"))
     user_id = request.form.get("user_id", type=int)
     site_id = request.form.get("site_id", type=int)
+    start_date = request.form.get("start_date")
+    end_date = request.form.get("end_date")
     if user_id and site_id:
         if not Assignment.query.filter_by(user_id=user_id, site_id=site_id).first():
-            db.session.add(Assignment(user_id=user_id, site_id=site_id))
-            db.session.commit()
+            a = Assignment(user_id=user_id, site_id=site_id)
+            if start_date:
+                a.start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+            if end_date:
+                a.end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+            db.session.add(a); db.session.commit()
             flash("Cantiere assegnato", "success")
     return redirect(url_for("users"))
 
@@ -412,7 +523,7 @@ def delete_assignment(aid):
     flash("Assegnazione rimossa", "success")
     return redirect(url_for("users"))
 
-# ------------------ Admin: Veicoli e Attrezzature ------------------
+# ------------------ Admin: Veicoli & Attrezzature ------------------
 @app.route("/admin/vehicles", methods=["GET","POST"])
 @login_required
 def vehicles():
@@ -476,7 +587,6 @@ def equipment_status(eid):
     flash("Stato aggiornato", "success")
     return redirect(url_for("equipment"))
 
-# Endpoint nominato come nel template: equipment_delete
 @app.route("/admin/equipment/<int:eid>/delete", methods=["POST"], endpoint="equipment_delete")
 @login_required
 def delete_equipment(eid):
@@ -486,14 +596,11 @@ def delete_equipment(eid):
     flash("Attrezzatura eliminata", "success")
     return redirect(url_for("equipment"))
 
-# ------------------ Capocantiere: Attività giornaliere ------------------
+# ------------------ Capo: Attività (con foto) ------------------
 @app.route("/capo/attivita", methods=["GET","POST"])
 @login_required
 def capo_attivita():
-    if is_admin():  # admin può filtrare per cantiere e utente
-        my_assignments = Assignment.query.all()
-    else:
-        my_assignments = Assignment.query.filter_by(user_id=current_user.id).all()
+    my_assignments = Assignment.query.all() if is_admin() else Assignment.query.filter_by(user_id=current_user.id).all()
 
     if request.method == "POST":
         work_date = request.form.get("work_date") or date.today().isoformat()
@@ -501,6 +608,7 @@ def capo_attivita():
         client_activity_id = request.form.get("client_activity_id", type=int)
         qty = request.form.get("qty", type=float) or 0.0
         note = request.form.get("note","").strip() or None
+        photo = save_upload(request.files.get("photo"), "ACT")
         if not site_id or not client_activity_id:
             flash("Seleziona cantiere e attività", "warning")
         else:
@@ -510,13 +618,13 @@ def capo_attivita():
                 client_activity_id=client_activity_id,
                 work_date=datetime.strptime(work_date,"%Y-%m-%d").date(),
                 qty=qty,
-                note=note
+                note=note,
+                photo_path=photo
             )
             db.session.add(entry); db.session.commit()
             flash("Rilevazione salvata", "success")
         return redirect(url_for("capo_attivita"))
 
-    # attività disponibili per i cantieri assegnati
     site_ids = [a.site_id for a in my_assignments]
     assigned_ca = ClientActivity.query.filter(ClientActivity.site_id.in_(site_ids)).all() if site_ids else []
     entries = ActivityEntry.query.order_by(ActivityEntry.work_date.desc(), ActivityEntry.id.desc())
@@ -534,6 +642,60 @@ def delete_entry(eid):
     db.session.delete(e); db.session.commit()
     flash("Eliminato", "success")
     return redirect(url_for("capo_attivita"))
+
+# ------------------ Capo: Attività EXTRA (con foto) ------------------
+@app.route("/capo/attivita-extra", methods=["GET","POST"])
+@login_required
+def capo_attivita_extra():
+    assignments = Assignment.query.filter_by(user_id=current_user.id).all() if not is_admin() else Assignment.query.all()
+    if request.method == "POST":
+        site_id = request.form.get("site_id", type=int)
+        work_date = request.form.get("work_date") or date.today().isoformat()
+        description = request.form.get("description","").strip()
+        unit = request.form.get("unit","").strip() or "u"
+        qty = request.form.get("qty", type=float) or 1.0
+        photo = save_upload(request.files.get("photo"), "EXTRA")
+        if not site_id or not description:
+            flash("Compila i campi obbligatori", "warning")
+        else:
+            row = ExtraActivity(
+                site_id=site_id,
+                user_id=current_user.id,
+                work_date=datetime.strptime(work_date,"%Y-%m-%d").date(),
+                description=description,
+                unit=unit,
+                qty=qty,
+                photo_path=photo
+            )
+            db.session.add(row); db.session.commit()
+            flash("Attività extra inviata (in attesa di quotazione)", "success")
+        return redirect(url_for("capo_attivita_extra"))
+
+    q = ExtraActivity.query.order_by(ExtraActivity.work_date.desc(), ExtraActivity.id.desc())
+    if not is_admin():
+        q = q.filter(ExtraActivity.user_id == current_user.id)
+    rows = q.limit(200).all()
+    return render_template("capo_attivita_extra.html", assignments=assignments, rows=rows)
+
+# ------------------ Admin: Gestione & quotazione Attività EXTRA ------------------
+@app.route("/admin/attivita-extra", methods=["GET","POST"])
+@login_required
+def admin_attivita_extra():
+    if not is_admin(): return redirect(url_for("dashboard"))
+    if request.method == "POST":
+        eid = request.form.get("extra_id", type=int)
+        unit_price = request.form.get("unit_price", type=float)
+        approved = True if request.form.get("approved") == "1" else False
+        row = ExtraActivity.query.get_or_404(eid)
+        row.unit_price = unit_price
+        row.approved = approved
+        db.session.commit()
+        flash("Quotazione aggiornata", "success")
+        return redirect(url_for("admin_attivita_extra"))
+
+    sites = Site.query.order_by(Site.name.asc()).all()
+    rows = ExtraActivity.query.order_by(ExtraActivity.work_date.desc()).all()
+    return render_template("admin_attivita_extra.html", sites=sites, rows=rows)
 
 # ------------------ Spese cantiere (capo) ------------------
 @app.route("/capo/spese", methods=["GET","POST"])
@@ -594,13 +756,12 @@ def capo_spese_veicoli():
     rows = q.limit(200).all()
     return render_template("capo_spese_veicoli.html", vehicles=vehicles, rows=rows)
 
-# ------------------ Capo: attrezzature status (alert admin) ------------------
+# ------------------ Capo: segnalazione attrezzature ------------------
 @app.route("/capo/equipment/<int:eid>/status", methods=["POST"])
 @login_required
 def capo_equipment_status(eid):
     e = Equipment.query.get_or_404(eid)
     new_status = request.form.get("status","manutenzione")
-    # Limito i valori impostabili dal capo
     if new_status not in {"rotto", "manutenzione"}:
         new_status = "manutenzione"
     e.status = new_status
@@ -616,16 +777,27 @@ def admin_report():
     if not is_admin(): return redirect(url_for("dashboard"))
     today = date.today()
     start = datetime(today.year, today.month, 1).date()
-    acts = db.session.query(ActivityEntry.work_date,
-                            func.sum(ActivityEntry.qty * ActivityCatalog.unit_price).label("val"))
-    acts = acts.join(ClientActivity, ClientActivity.id == ActivityEntry.client_activity_id)\
-               .join(ActivityCatalog, ActivityCatalog.id == ClientActivity.activity_id)\
-               .filter(ActivityEntry.work_date >= start)\
-               .group_by(ActivityEntry.work_date)\
-               .order_by(ActivityEntry.work_date).all()
-    total_val = sum([float(a.val or 0) for a in acts])
+
+    # Valore attività (catalogo): somma qty * unit_price
+    acts = db.session.query(
+        func.sum(ActivityEntry.qty * ActivityCatalog.unit_price)
+    ).join(ClientActivity, ClientActivity.id == ActivityEntry.client_activity_id)\
+     .join(ActivityCatalog, ActivityCatalog.id == ClientActivity.activity_id)\
+     .filter(ActivityEntry.work_date >= start).scalar() or 0.0
+
+    # Valore attività EXTRA approvate e quotate
+    extra_val = db.session.query(
+        func.sum(ExtraActivity.qty * ExtraActivity.unit_price)
+    ).filter(
+        ExtraActivity.work_date >= start,
+        ExtraActivity.approved == True,
+        ExtraActivity.unit_price.isnot(None)
+    ).scalar() or 0.0
+
     veh_cost = db.session.query(func.sum(VehicleExpense.amount)).scalar() or 0.0
     site_cost = db.session.query(func.sum(SiteExpense.amount)).scalar() or 0.0
+
+    total_val = float(acts) + float(extra_val)
 
     start_default = (date.today() - timedelta(days=7)).isoformat()
     end_default = date.today().isoformat()
@@ -633,6 +805,7 @@ def admin_report():
     return render_template(
         "admin_report.html",
         total_val=total_val,
+        extra_val=extra_val,
         veh_cost=veh_cost,
         site_cost=site_cost,
         start_default=start_default,
@@ -649,7 +822,7 @@ def export_attivita():
     edate = datetime.strptime(end,"%Y-%m-%d").date()
 
     rows = db.session.query(
-        ActivityEntry.work_date, Site.name, Client.name,
+        ActivityEntry.work_date, Site.name.label("site_name"), Client.name.label("client_name"),
         ActivityCatalog.code, ActivityCatalog.description, ActivityCatalog.unit,
         ActivityEntry.qty, ActivityCatalog.unit_price,
         (ActivityEntry.qty * ActivityCatalog.unit_price).label("value")
@@ -666,11 +839,47 @@ def export_attivita():
     total = 0.0
     for r in rows:
         total += float(r.value or 0.0)
-        ws.append([r.work_date.strftime("%Y-%m-%d"), r.name, r[2], r.code, r.description, r.unit, float(r.qty or 0), float(r.unit_price or 0), float(r.value or 0)])
-    ws.append(["","","","","","","","Totale", total]); ws.cell(row=ws.max_row, column=8).font = Font(bold=True); ws.cell(row=ws.max_row, column=9).font = Font(bold=True)
+        ws.append([
+            r.work_date.strftime("%Y-%m-%d"),
+            r.site_name, r.client_name, r.code, r.description, r.unit,
+            float(r.qty or 0), float(r.unit_price or 0), float(r.value or 0)
+        ])
+
+    # Extra approvate e quotate nel range
+    extra = ExtraActivity.query.filter(
+        ExtraActivity.work_date >= sdate, ExtraActivity.work_date <= edate,
+        ExtraActivity.approved == True, ExtraActivity.unit_price.isnot(None)
+    ).order_by(ExtraActivity.work_date).all()
+
+    ws.append([])
+    ws.append(["ATTIVITÀ EXTRA APPROVATE"])
+    ws.cell(row=ws.max_row, column=1).font = Font(bold=True)
+    ws.append(["Data","Cantiere","Descrizione","UM","Q.tà","Prezzo Unit.","Valore (€)"])
+    for c in range(1,8): ws.cell(row=ws.max_row, column=c).font = Font(bold=True)
+
+    extra_tot = 0.0
+    for e in extra:
+        val = float((e.qty or 0.0) * (e.unit_price or 0.0))
+        extra_tot += val
+        ws.append([
+            e.work_date.strftime("%Y-%m-%d"),
+            e.site.name if e.site else "",
+            e.description, e.unit, float(e.qty or 0.0),
+            float(e.unit_price or 0.0), val
+        ])
+
+    ws.append([])
+    ws.append(["","", "Totale Attività Catalogo", "", "", "", total])
+    ws.append(["","", "Totale Attività Extra", "", "", "", extra_tot])
+    ws.append(["","", "TOTALE COMPLESSIVO", "", "", "", total + extra_tot])
+    for i in range(3,8,3):
+        ws.cell(row=ws.max_row, column=3).font = Font(bold=True)
+        ws.cell(row=ws.max_row-1, column=3).font = Font(bold=True)
+
     buf = io.BytesIO(); wb.save(buf); buf.seek(0)
     filename = f"attivita_{sdate.strftime('%Y%m%d')}_{edate.strftime('%Y%m%d')}.xlsx"
-    return send_file(buf, as_attachment=True, download_name=filename, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    return send_file(buf, as_attachment=True, download_name=filename,
+                     mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 @app.route("/admin/export/spese-veicoli")
 @login_required
@@ -688,7 +897,7 @@ def export_spese_veicoli():
     tot=0.0
     for r in rows:
         tot += float(r.amount or 0.0)
-        ws.append([r.exp_date.strftime("%Y-%m-%d"), r.vehicle.plate, r.exp_type, float(r.amount or 0.0), r.receipt_path or ""])
+        ws.append([r.exp_date.strftime("%Y-%m-%d"), r.vehicle.plate if r.vehicle else "", r.exp_type, float(r.amount or 0.0), r.receipt_path or ""])
     ws.append(["","","Totale", tot,""]); ws.cell(row=ws.max_row, column=3).font = Font(bold=True); ws.cell(row=ws.max_row, column=4).font = Font(bold=True)
     buf = io.BytesIO(); wb.save(buf); buf.seek(0)
     filename = f"spese_veicoli_{sdate.strftime('%Y%m%d')}_{edate.strftime('%Y%m%d')}.xlsx"
@@ -710,7 +919,7 @@ def export_spese_cantiere():
     tot=0.0
     for r in rows:
         tot += float(r.amount or 0.0)
-        ws.append([r.exp_date.strftime("%Y-%m-%d"), r.site.name, r.exp_type, r.payment_type or "", float(r.amount or 0.0), r.receipt_path or ""])
+        ws.append([r.exp_date.strftime("%Y-%m-%d"), r.site.name if r.site else "", r.exp_type, r.payment_type or "", float(r.amount or 0.0), r.receipt_path or ""])
     ws.append(["","","","Totale", tot,""]); ws.cell(row=ws.max_row, column=4).font = Font(bold=True); ws.cell(row=ws.max_row, column=5).font = Font(bold=True)
     buf = io.BytesIO(); wb.save(buf); buf.seek(0)
     filename = f"spese_cantiere_{sdate.strftime('%Y%m%d')}_{edate.strftime('%Y%m%d')}.xlsx"
@@ -719,14 +928,8 @@ def export_spese_cantiere():
 # ------------------ Template helpers ------------------
 @app.context_processor
 def inject_now():
-    # Oggetti utili nei template
-    return {
-        "now": datetime.now(),
-        "timedelta": timedelta,
-        "date": date
-    }
+    return {"now": datetime.now(), "timedelta": timedelta, "date": date}
 
-# Adattatore per chiamate url_for con argomenti posizionali dai template esistenti
 @app.context_processor
 def url_for_positional_adapter():
     def url_for_fix(endpoint, *args, **kwargs):
@@ -752,6 +955,43 @@ def url_for_positional_adapter():
         return url_for(endpoint, **kwargs)
     return dict(url_for=url_for_fix)
 
+@app.context_processor
+def url_for_positional_adapter():
+    def url_for_fix(endpoint, *args, **kwargs):
+        # --- alias compatibilità vecchi template ---
+        alias = {
+            "admin_home": "dashboard",        # vecchio "Admin" -> dashboard
+            "admin_users": "users",           # vecchio -> /admin/users
+            "admin_clients": "clients_sites", # vecchio -> /admin/clients-sites
+            "admin_auth": "dashboard",        # eventuale alias storico
+        }
+        if endpoint in alias:
+            return url_for(alias[endpoint], **kwargs)
+
+        # mapping già esistente per gli endpoint con parametri posizionali
+        if args:
+            try:
+                if endpoint == "delete_clients_sites" and len(args) == 2:
+                    kind, oid = args
+                    return url_for(endpoint, kind=kind, oid=oid)
+                if endpoint == "delete_catalogo" and len(args) == 1:
+                    (aid,) = args
+                    return url_for(endpoint, aid=aid)
+                if endpoint == "delete_user" and len(args) == 1:
+                    (uid,) = args
+                    return url_for(endpoint, uid=uid)
+                if endpoint == "delete_vehicle" and len(args) == 1:
+                    (vid,) = args
+                    return url_for(endpoint, vid=vid)
+                if endpoint == "equipment_delete" and len(args) == 1:
+                    (eid,) = args
+                    return url_for(endpoint, eid=eid)
+            except Exception:
+                pass
+        return url_for(endpoint, **kwargs)
+    return dict(url_for=url_for_fix)
+
 # ------------------ Run ------------------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)
