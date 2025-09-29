@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Catalogo Attività{% endblock %}
+{% block content %}
+<h1 class="page-title">Catalogo Attività</h1>
+
+<div class="grid cols-2">
+  <div class="card">
+    <h3>Nuova attività</h3>
+    <form method="post">
+      <input type="hidden" name="action" value="add_type">
+      <div class="row">
+        <div class="grow"><input name="name" placeholder="Nome" required></div>
+        <div style="width:140px"><input name="unit" value="pz" placeholder="Unità"></div>
+      </div>
+      <div style="margin-top:8px"><button class="btn">Aggiungi</button></div>
+    </form>
+  </div>
+  <div class="card">
+    <h3>Elenco</h3>
+    {% if types %}
+      <table>
+        <thead><tr><th>Nome</th><th>Unità</th><th>Azione</th></tr></thead>
+        <tbody>
+          {% for t in types %}
+            <tr>
+              <td>{{ t.name }}</td>
+              <td>{{ t.unit }}</td>
+              <td>
+                <form method="post" onsubmit="return confirm('Eliminare attività?')">
+                  <input type="hidden" name="action" value="delete_type">
+                  <input type="hidden" name="id" value="{{ t.id }}">
+                  <button class="btn danger small">Elimina</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}<div class="empty">Vuoto.</div>{% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,87 +1,60 @@
-{% extends "base.html" %}
+{% extends "_layout.html" %}
 {% block content %}
-<div class="container py-4">
-  <h2 class="mb-3">Report amministratore</h2>
-
-  <div class="row g-3 mb-4">
-    <div class="col-lg-4">
-      <div class="card shadow-sm h-100">
-        <div class="card-body">
-          <div class="d-flex align-items-center gap-3">
-            <div class="display-6">€ {{ '%.2f'|format(total_val or 0) }}</div>
-            <div class="text-muted">Valore attività (mese corrente)</div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="col-lg-4">
-      <div class="card shadow-sm h-100">
-        <div class="card-body">
-          <div class="d-flex align-items-center gap-3">
-            <div class="display-6">€ {{ '%.2f'|format(veh_cost or 0) }}</div>
-            <div class="text-muted">Spese veicoli (totali)</div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="col-lg-4">
-      <div class="card shadow-sm h-100">
-        <div class="card-body">
-          <div class="d-flex align-items-center gap-3">
-            <div class="display-6">€ {{ '%.2f'|format(site_cost or 0) }}</div>
-            <div class="text-muted">Spese cantieri (totali)</div>
-          </div>
-        </div>
-      </div>
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card p-4">
+      <h5>Riepilogo mese corrente</h5>
+      <ul class="list-unstyled mb-0">
+        <li>Valore attività catalogo: <strong>€ {{ '%.2f'|format((total_val - (extra_val or 0))|float) }}</strong></li>
+        <li>Valore attività extra (approvate): <strong>€ {{ '%.2f'|format(extra_val or 0) }}</strong></li>
+        <li class="mt-2">Totale valore: <span class="badge bg-success">€ {{ '%.2f'|format(total_val or 0) }}</span></li>
+        <li class="mt-2">Spese veicoli: <strong>€ {{ '%.2f'|format(veh_cost or 0) }}</strong></li>
+        <li>Spese cantiere: <strong>€ {{ '%.2f'|format(site_cost or 0) }}</strong></li>
+      </ul>
     </div>
   </div>
 
-  <h5 class="mt-4">Esporta Excel</h5>
-  <div class="card shadow-sm">
-    <div class="card-body">
-      <form method="get" action="{{ url_for('export_attivita') }}" class="row g-2 align-items-end">
+  <div class="col-lg-8">
+    <div class="card p-4">
+      <h5>Esporta</h5>
+      <form class="row g-2 align-items-end" action="{{ url_for('export_attivita') }}" method="get">
         <div class="col-md-3">
-          <label class="form-label">Da data</label>
-          <input type="date" name="start" class="form-control" value="{{ now.date().isoformat() }}">
+          <label class="form-label">Da</label>
+          <input type="date" class="form-control" name="start" value="{{ start_default }}">
         </div>
         <div class="col-md-3">
-          <label class="form-label">A data</label>
-          <input type="date" name="end" class="form-control" value="{{ now.date().isoformat() }}">
+          <label class="form-label">A</label>
+          <input type="date" class="form-control" name="end" value="{{ end_default }}">
         </div>
         <div class="col-md-3">
-          <button class="btn btn-outline-primary w-100">Export Attività</button>
-        </div>
-      </form>
-
-      <hr>
-
-      <form method="get" action="{{ url_for('export_spese_veicoli') }}" class="row g-2 align-items-end">
-        <div class="col-md-3">
-          <label class="form-label">Da data</label>
-          <input type="date" name="start" class="form-control" value="{{ now.date().isoformat() }}">
-        </div>
-        <div class="col-md-3">
-          <label class="form-label">A data</label>
-          <input type="date" name="end" class="form-control" value="{{ now.date().isoformat() }}">
-        </div>
-        <div class="col-md-3">
-          <button class="btn btn-outline-secondary w-100">Export Spese Veicoli</button>
+          <button class="btn btn-primary w-100">Export Attività (.xlsx)</button>
         </div>
       </form>
-
       <hr>
-
-      <form method="get" action="{{ url_for('export_spese_cantiere') }}" class="row g-2 align-items-end">
+      <form class="row g-2 align-items-end" action="{{ url_for('export_spese_veicoli') }}" method="get">
         <div class="col-md-3">
-          <label class="form-label">Da data</label>
-          <input type="date" name="start" class="form-control" value="{{ now.date().isoformat() }}">
+          <label class="form-label">Da</label>
+          <input type="date" class="form-control" name="start" value="{{ start_default }}">
         </div>
         <div class="col-md-3">
-          <label class="form-label">A data</label>
-          <input type="date" name="end" class="form-control" value="{{ now.date().isoformat() }}">
+          <label class="form-label">A</label>
+          <input type="date" class="form-control" name="end" value="{{ end_default }}">
         </div>
         <div class="col-md-3">
-          <button class="btn btn-outline-success w-100">Export Spese Cantieri</button>
+          <button class="btn btn-outline-primary w-100">Export Spese Veicoli</button>
+        </div>
+      </form>
+      <form class="row g-2 align-items-end mt-2" action="{{ url_for('export_spese_cantiere') }}" method="get">
+        <div class="col-md-3">
+          <label class="form-label">Da</label>
+          <input type="date" class="form-control" name="start" value="{{ start_default }}">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">A</label>
+          <input type="date" class="form-control" name="end" value="{{ end_default }}">
+        </div>
+        <div class="col-md-3">
+          <button class="btn btn-outline-primary w-100">Export Spese Cantiere</button>
         </div>
       </form>
     </div>

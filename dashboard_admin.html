@@ -1,17 +1,25 @@
-{% extends "base.html" %}
+{% extends "_layout.html" %}
 {% block content %}
-<div class="row g-4">
+<div class="row g-3">
   <div class="col-md-4">
     <div class="card p-4">
-      <h5>Alert attrezzatura</h5>
-      <p class="display-6">{{ unread }}</p>
-      <a href="{{ url_for('equipment') }}" class="btn btn-sm btn-outline-light">Vai</a>
+      <h5>Messaggi/Alert</h5>
+      <p class="display-6">{{ unread or 0 }}</p>
+      <p class="text-muted">Segnalazioni recenti su attrezzature e sistema.</p>
     </div>
   </div>
   <div class="col-md-8">
     <div class="card p-4">
-      <h5>Benvenuto, Admin</h5>
-      <p>Usa il menu per gestire clienti, cantieri, attività, utenti, veicoli, attrezzature e report.</p>
+      <h5>Azioni rapide</h5>
+      <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-outline-primary" href="{{ url_for('clients_sites') }}">Clienti & Cantieri</a>
+        <a class="btn btn-outline-primary" href="{{ url_for('catalogo') }}">Catalogo attività</a>
+        <a class="btn btn-outline-primary" href="{{ url_for('users') }}">Gestione utenti</a>
+        <a class="btn btn-outline-primary" href="{{ url_for('vehicles') }}">Veicoli</a>
+        <a class="btn btn-outline-primary" href="{{ url_for('equipment') }}">Attrezzature</a>
+        <a class="btn btn-outline-primary" href="{{ url_for('admin_attivita_extra') }}">Quotazione extra</a>
+        <a class="btn btn-primary" href="{{ url_for('admin_report') }}">Report</a>
+      </div>
     </div>
   </div>
 </div>

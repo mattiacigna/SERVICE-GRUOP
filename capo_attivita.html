@@ -1,72 +1,75 @@
-{% extends "base.html" %}
+{% extends "_layout.html" %}
 {% block content %}
-<div class="container py-4">
-  <h2 class="mb-3">Attività giornaliere</h2>
-
-  <div class="card shadow-sm mb-4">
-    <div class="card-header">Nuova rilevazione</div>
-    <div class="card-body">
-      <form method="post" action="{{ url_for('capo_attivita') }}" class="row g-2">
-        <div class="col-md-3">
-          <input type="date" name="work_date" class="form-control" value="{{ now.date().isoformat() }}">
+<div class="row">
+  <div class="col-lg-5">
+    <div class="card p-4">
+      <h5>Registra attività</h5>
+      <form method="post" enctype="multipart/form-data">
+        <div class="mb-2">
+          <label class="form-label">Data</label>
+          <input type="date" class="form-control" name="work_date" value="{{ date.today() }}">
         </div>
-        <div class="col-md-3">
-          <select name="site_id" class="form-select" required>
-            <option value="">— Cantiere —</option>
+        <div class="mb-2">
+          <label class="form-label">Cantiere</label>
+          <select class="form-select" name="site_id" required>
+            <option value="">—</option>
             {% for a in assignments %}
               <option value="{{ a.site.id }}">{{ a.site.name }}</option>
             {% endfor %}
           </select>
         </div>
-        <div class="col-md-3">
-          <select name="client_activity_id" class="form-select" required>
-            <option value="">— Attività assegnata —</option>
+        <div class="mb-2">
+          <label class="form-label">Attività</label>
+          <select class="form-select" name="client_activity_id" required>
+            <option value="">—</option>
             {% for ca in assigned_ca %}
-              <option value="{{ ca.id }}">{{ ca.site.name }} — {{ ca.activity.code }} ({{ ca.activity.unit }})</option>
+              <option value="{{ ca.id }}">{{ ca.site.name }} — {{ ca.activity.code }} / {{ ca.activity.description }} ({{ ca.activity.unit }})</option>
             {% endfor %}
           </select>
         </div>
-        <div class="col-md-2">
-          <input name="qty" type="number" step="0.01" class="form-control" placeholder="Q.tà" required>
+        <div class="mb-2">
+          <label class="form-label">Quantità</label>
+          <input class="form-control" name="qty" type="number" step="0.01" min="0" value="0">
         </div>
-        <div class="col-md-10">
-          <input name="note" class="form-control" placeholder="Nota (opzionale)">
+        <div class="mb-2">
+          <label class="form-label">Note</label>
+          <input class="form-control" name="note">
         </div>
-        <div class="col-md-2">
-          <button class="btn btn-primary w-100">Salva</button>
+        <div class="mb-3">
+          <label class="form-label">Foto (opzionale)</label>
+          <input class="form-control" type="file" name="photo" accept="image/*,application/pdf">
         </div>
+        <button class="btn btn-primary w-100">Salva</button>
       </form>
     </div>
   </div>
 
-  <div class="card shadow-sm">
-    <div class="card-header">Ultime rilevazioni</div>
-    <div class="card-body table-responsive">
+  <div class="col-lg-7">
+    <div class="card p-4">
+      <h5>Ultime registrazioni</h5>
       <table class="table align-middle">
-        <thead>
-          <tr>
-            <th>Data</th><th>Cantiere</th><th>Attività</th><th>UM</th><th>Q.tà</th><th>Prezzo</th><th>Valore</th><th>Nota</th><th style="width:1%"></th>
-          </tr>
-        </thead>
+        <thead><tr><th>Data</th><th>Cantiere</th><th>Attività</th><th>Q.tà</th><th>Foto</th><th class="text-end">Azioni</th></tr></thead>
         <tbody>
         {% for e in entries %}
           <tr>
-            <td>{{ e.work_date.strftime('%Y-%m-%d') }}</td>
+            <td>{{ e.work_date }}</td>
             <td>{{ e.site.name }}</td>
-            <td>{{ e.client_activity.activity.code }} - {{ e.client_activity.activity.description }}</td>
-            <td>{{ e.client_activity.activity.unit }}</td>
-            <td>{{ '%.2f'|format(e.qty or 0) }}</td>
-            <td>€ {{ '%.2f'|format(e.client_activity.activity.unit_price or 0) }}</td>
-            <td>€ {{ '%.2f'|format((e.qty or 0) * (e.client_activity.activity.unit_price or 0)) }}</td>
-            <td>{{ e.note or '' }}</td>
+            <td>{{ e.client_activity.activity.code }} — {{ e.client_activity.activity.description }}</td>
+            <td>{{ e.qty }} {{ e.client_activity.activity.unit }}</td>
+            <td>
+              {% if e.photo_path %}
+                <a href="{{ url_for('static', filename=e.photo_path) }}" target="_blank">Apri</a>
+              {% else %}-{% endif %}
+            </td>
             <td class="text-end">
-              <form method="post" action="{{ url_for('delete_entry', eid=e.id) }}" onsubmit="return confirm('Eliminare rilevazione?');">
-                <button class="btn btn-sm btn-danger">Elimina</button>
+              <form method="post" action="{{ url_for('delete_entry', eid=e.id) }}"
+                    onsubmit="return confirm('Eliminare registrazione?')">
+                <button class="btn btn-sm btn-outline-danger">Elimina</button>
               </form>
             </td>
           </tr>
         {% else %}
-          <tr><td colspan="9" class="text-muted">Nessuna rilevazione.</td></tr>
+          <tr><td colspan="6" class="text-muted">Nessuna registrazione</td></tr>
         {% endfor %}
         </tbody>
       </table>

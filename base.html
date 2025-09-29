@@ -2,92 +2,76 @@
 <html lang="it">
 <head>
   <meta charset="utf-8">
+  <title>{% block title %}Gestionale{% endblock %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Gestionale Cantieri</title>
-
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-
   <style>
-    /* Tema scuro */
-    body{ background:#0f172a; color:#e2e8f0; }
-    .navbar{ background:linear-gradient(135deg,#111827,#1f2937); }
-    .card{
-      background:rgba(31,41,55,.7); border:none; border-radius:16px;
-      box-shadow:0 10px 30px rgba(0,0,0,.35);
-    }
-    .btn-primary{
-      background:linear-gradient(135deg,#6366f1,#22d3ee); border:0;
-      box-shadow:0 10px 20px rgba(34,211,238,.25)
-    }
-    a{ color:#93c5fd }
-
-    /* Leggibilità forzata */
-    body, main, header, footer, .container, .row, .col, .card, .card *{
-      color:#ffffff !important;
-    }
-    .text-muted{ color:rgba(255,255,255,.72) !important; }
-    .list-group-item{
-      background:transparent; color:#ffffff !important;
-      border-color:rgba(255,255,255,.12) !important;
-    }
-    .table{ --bs-table-bg:transparent; --bs-table-color:#e5e7eb }
-    .table th, .table td{
-      color:#ffffff !important; border-color:rgba(255,255,255,.12) !important;
-    }
-    .badge{ color:#ffffff !important; }
-    .bi, i, svg, svg *{ color:#ffffff !important; stroke:currentColor !important; fill:currentColor !important; }
-
-    /* Input scuri leggibili */
-    .form-control, .form-select{
-      background:rgba(15,23,42,.6); color:#ffffff !important; border-color:rgba(255,255,255,.2);
-    }
-    .form-control::placeholder{ color:rgba(255,255,255,.6) }
-    .form-check-label{ color:#ffffff !important }
-
-    /* Bottoni outline leggibili */
-    .btn-outline-light{ border-color:rgba(255,255,255,.55); color:#ffffff !important; }
-    .btn-outline-light:hover{ background:rgba(255,255,255,.12); }
+    :root { --bg:#0b1020; --card:#111833; --accent:#5eead4; --text:#e5e7eb; --muted:#9ca3af; }
+    *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial;background:radial-gradient(60rem 60rem at 120% -10%,#1f2a44 0,#0b1020 60%);color:var(--text)}
+    a{color:var(--accent);text-decoration:none}
+    header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;position:sticky;top:0;background:#0b1020aa;backdrop-filter:blur(6px);border-bottom:1px solid #1f2a44}
+    .brand{font-weight:700;letter-spacing:.4px}
+    nav a{margin:0 10px}
+    .container{max-width:1100px;margin:24px auto;padding:0 16px}
+    .flash{padding:10px 14px;border-radius:10px;margin-bottom:10px}
+    .flash.success{background:#103b2e;color:#a7f3d0;border:1px solid #065f46}
+    .flash.warning{background:#3b2a10;color:#fde68a;border:1px solid #92400e}
+    .flash.danger{background:#3b1010;color:#fecaca;border:1px solid #7f1d1d}
+    .grid{display:grid;gap:14px}
+    .grid.cols-2{grid-template-columns:1fr 1fr}
+    .grid.cols-3{grid-template-columns:repeat(3,1fr)}
+    .card{background:linear-gradient(180deg,#121a35,#0f1530);border:1px solid #1f2a44;border-radius:16px;padding:16px;transform:translateZ(0);transition:.25s;box-shadow:0 10px 30px #0004}
+    .card:hover{transform:translateY(-2px) scale(1.01)}
+    .btn{display:inline-block;background:linear-gradient(90deg,#16a34a,#06b6d4);color:#001; font-weight:600;padding:10px 14px;border-radius:12px;border:none;cursor:pointer}
+    .btn.secondary{background:#1f2a44;color:#cbd5e1;border:1px solid #243053}
+    .btn.danger{background:#b91c1c;color:#fee2e2}
+    .btn.small{padding:6px 10px;font-size:.9rem}
+    input,select,textarea{width:100%;background:#0c1228;border:1px solid #1f2a44;color:var(--text);padding:10px;border-radius:10px}
+    label{font-size:.9rem;color:var(--muted)}
+    table{width:100%;border-collapse:separate;border-spacing:0 8px}
+    th,td{padding:10px;background:#0c1228;border:1px solid #1f2a44}
+    th{color:#a5b4fc;background:#121a35}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    .grow{flex:1}
+    .page-title{font-size:1.4rem;margin:6px 0 14px}
+    .empty{color:var(--muted);padding:8px}
   </style>
+  {% block head %}{% endblock %}
 </head>
-
 <body>
-<nav class="navbar navbar-dark navbar-expand-lg">
-  <div class="container-fluid">
-    <a class="navbar-brand d-flex align-items-center gap-2" href="{{ url_for('index') }}">
-      <!-- <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" height="36"> -->
-      <span>Gestionale Cantieri</span>
-    </a>
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
-      <span class="navbar-toggler-icon"></span>
-    </button>
-    <div id="nav" class="collapse navbar-collapse">
-      <ul class="navbar-nav ms-auto align-items-lg-center gap-2">
-        <li class="nav-item"><a class="nav-link" href="{{ url_for('dashboard') }}"><i class="bi bi-speedometer2 me-1"></i>Dashboard</a></li>
-        <li class="nav-item"><a class="nav-link" href="{{ url_for('equipment') }}"><i class="bi bi-tools me-1"></i>Attrezzature</a></li>
-        <li class="nav-item"><a class="nav-link" href="{{ url_for('clients_sites') }}"><i class="bi bi-diagram-3 me-1"></i>Cantieri</a></li>
-        <li class="nav-item"><a class="nav-link" href="{{ url_for('catalogo') }}"><i class="bi bi-list-ul me-1"></i>Attività</a></li>
-        <li class="nav-item"><a class="nav-link" href="{{ url_for('logout') }}"><i class="bi bi-box-arrow-right me-1"></i>Esci</a></li>
-      </ul>
-    </div>
-  </div>
-</nav>
+<header>
+  <div class="brand">🏗️ Gestionale</div>
+  <nav>
+    {% if current_user.is_authenticated %}
+      <a href="{{ url_for('dashboard') }}">Dashboard</a>
+      {% if current_user.role == 'admin' %}
+        <a href="{{ url_for('admin_users') }}">Utenti</a>
+        <a href="{{ url_for('admin_clients_sites') }}">Clienti & Cantieri</a>
+        <a href="{{ url_for('admin_catalogo') }}">Catalogo</a>
+        <a href="{{ url_for('admin_equipment') }}">Attrezzature</a>
+        <a href="{{ url_for('admin_vehicles') }}">Veicoli</a>
+        <a href="{{ url_for('admin_attivita_extra') }}">Attività Extra</a>
+        <a href="{{ url_for('admin_alerts') }}">Alert</a>
+        <a href="{{ url_for('admin_report') }}">Report</a>
+      {% else %}
+        <a href="{{ url_for('operator_logs') }}">Quantità</a>
+      {% endif %}
+      <a href="{{ url_for('logout') }}">Logout</a>
+    {% else %}
+      <a href="{{ url_for('login') }}">Login</a>
+    {% endif %}
+  </nav>
+</header>
 
-<main class="container py-4">
+<div class="container">
   {% with msgs = get_flashed_messages(with_categories=true) %}
     {% if msgs %}
-      {% for cat, m in msgs %}
-        <div class="alert alert-{{ cat }} alert-dismissible fade show" role="alert">
-          {{ m }}
-          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
+      {% for cat, msg in msgs %}
+        <div class="flash {{cat}}">{{ msg }}</div>
       {% endfor %}
     {% endif %}
   {% endwith %}
 
   {% block content %}{% endblock %}
-</main>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</div>
 </body>
 </html>

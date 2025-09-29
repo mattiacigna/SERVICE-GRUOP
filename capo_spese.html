@@ -1,56 +1,62 @@
-{% extends "base.html" %}
+{% extends "_layout.html" %}
 {% block content %}
-<div class="row g-4">
-  <div class="col-md-6">
+<div class="row">
+  <div class="col-lg-5">
     <div class="card p-4">
-      <h4>Spese di cantiere</h4>
-      <form method="post" enctype="multipart/form-data" class="row g-2">
-        <div class="col-6">
+      <h5>Registra spesa cantiere</h5>
+      <form method="post" enctype="multipart/form-data">
+        <div class="mb-2">
           <label class="form-label">Cantiere</label>
-          <select name="site_id" class="form-select" required>
+          <select class="form-select" name="site_id" required>
+            <option value="">—</option>
             {% for a in assignments %}
-            <option value="{{ a.site.id }}">{{ a.site.name }}</option>
+              <option value="{{ a.site.id }}">{{ a.site.name }}</option>
             {% endfor %}
           </select>
         </div>
-        <div class="col-6">
-          <label class="form-label">Data</label>
-          <input type="date" name="exp_date" class="form-control" value="{{ now.strftime('%Y-%m-%d') }}">
-        </div>
-        <div class="col-6">
+        <div class="mb-2">
           <label class="form-label">Tipo spesa</label>
-          <input class="form-control" name="exp_type" placeholder="Es. materiali">
+          <input class="form-control" name="exp_type" required>
         </div>
-        <div class="col-3">
+        <div class="mb-2">
+          <label class="form-label">Importo (€)</label>
+          <input class="form-control" type="number" step="0.01" min="0" name="amount" required>
+        </div>
+        <div class="mb-2">
           <label class="form-label">Pagamento</label>
-          <input class="form-control" name="payment_type" placeholder="contanti/pos/...">
+          <input class="form-control" name="payment_type" placeholder="contanti / pos / bonifico">
         </div>
-        <div class="col-3">
-          <label class="form-label">Importo</label>
-          <input type="number" step="0.01" name="amount" class="form-control" required>
+        <div class="mb-2">
+          <label class="form-label">Data</label>
+          <input class="form-control" type="date" name="exp_date" value="{{ date.today() }}">
         </div>
-        <div class="col-12">
+        <div class="mb-3">
           <label class="form-label">Ricevuta (foto/pdf)</label>
-          <input type="file" name="receipt" class="form-control">
+          <input class="form-control" type="file" name="receipt" accept="image/*,application/pdf">
         </div>
-        <div class="col-12 mt-2"><button class="btn btn-primary">Registra</button></div>
+        <button class="btn btn-primary w-100">Salva</button>
       </form>
     </div>
   </div>
-  <div class="col-md-6">
+
+  <div class="col-lg-7">
     <div class="card p-4">
-      <h4>Ultime spese</h4>
-      <table class="table table-sm">
-        <thead><tr><th>Data</th><th>Cantiere</th><th>Tipo</th><th>€</th></tr></thead>
+      <h5>Ultime spese</h5>
+      <table class="table align-middle">
+        <thead><tr><th>Data</th><th>Cantiere</th><th>Tipo</th><th>Pagamento</th><th>Importo</th><th>Ricevuta</th></tr></thead>
         <tbody>
-          {% for r in rows %}
+        {% for r in rows %}
           <tr>
-            <td>{{ r.exp_date.strftime('%d/%m/%Y') }}</td>
+            <td>{{ r.exp_date }}</td>
             <td>{{ r.site.name }}</td>
             <td>{{ r.exp_type }}</td>
-            <td>{{ '%.2f'|format(r.amount) }}</td>
+            <td>{{ r.payment_type or '-' }}</td>
+            <td>€ {{ '%.2f'|format(r.amount or 0) }}</td>
+            <td>{% if r.receipt_path %}<a href="{{ url_for('static', filename=r.receipt_path) }}" target="_blank">Apri</a>{% else %}-{% endif %}</td>
           </tr>
-          {% endfor %}
+        {% else %}
+          <tr><td colspan="6" class="text-muted">Nessuna spesa</td></tr>
+        {% endfor %}
         </tbody>
       </table>
     </div>

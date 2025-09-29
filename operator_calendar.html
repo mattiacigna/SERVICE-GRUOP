@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Calendario — {{ task.name }} ({{ task.site.name }} / {{ task.site.client.name }})</h2>
+<div class="calendar-nav">
+  {% set prev_y = (month == 1) and (year-1) or year %}
+  {% set prev_m = (month == 1) and 12 or (month-1) %}
+  {% set next_y = (month == 12) and (year+1) or year %}
+  {% set next_m = (month == 12) and 1 or (month+1) %}
+  <a class="button" href="{{ url_for('operator_calendar', task_id=task.id, year=prev_y, month=prev_m) }}">« {{ '%02d/%d' % (prev_m, prev_y) }}</a>
+  <div class="monthtitle">{{ '%02d/%d' % (month, year) }}</div>
+  <a class="button" href="{{ url_for('operator_calendar', task_id=task.id, year=next_y, month=next_m) }}">{{ '%02d/%d' % (next_m, next_y) }} »</a>
+</div>
+<div class="calendar-grid card">
+  {% for d in range(1, days_in_month+1) %}
+    {% set existing = by_day.get(date(year,month,d)) %}
+    <div class="daycell tilt">
+      <div class="daynum">{{ d }}</div>
+      <div class="dayform">
+        <label>Quantità ({{ task.unit }})</label>
+        <input type="number" step="0.01" value="{{ existing.quantity if existing else '' }}" id="qty-{{ d }}">
+        <label>Nota</label>
+        <input type="text" value="{{ existing.note if existing else '' }}" id="note-{{ d }}">
+        <div class="actions">
+          <button class="button small primary" onclick="
+            saveQty('{{ url_for('operator_save_qty', task_id=task.id) }}',
+                    '{{ '%04d-%02d-%02d'|format(year,month,d) }}',
+                    document.getElementById('qty-{{ d }}').value,
+                    document.getElementById('note-{{ d }}').value,
+                    document.getElementById('out-{{ d }}'))">
+            Salva
+          </button>
+          <span id='out-{{ d }}' class="out"></span>
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+<p class="muted">Se modifichi una data antecedente a oggi, l’admin riceverà un alert automatico.</p>
+{% endblock %}

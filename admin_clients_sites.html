@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Clienti & Cantieri{% endblock %}
+{% block content %}
+<h1 class="page-title">Clienti & Cantieri</h1>
+
+<div class="grid cols-2">
+
+  <div class="card">
+    <h3>Nuovo cliente</h3>
+    <form method="post">
+      <input type="hidden" name="action" value="add_client">
+      <label>Nome cliente</label>
+      <input name="name" required>
+      <label style="margin-top:6px">Note</label>
+      <textarea name="note" rows="3"></textarea>
+      <div style="margin-top:10px"><button class="btn">Aggiungi cliente</button></div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h3>Clienti</h3>
+    {% if clients %}
+      {% for c in clients %}
+        <div class="card" style="margin-bottom:10px">
+          <div class="row" style="justify-content:space-between">
+            <strong>{{ c.name }}</strong>
+            <span class="empty">{{ c.note or '' }}</span>
+          </div>
+
+          <!-- Edit/Delete Cliente -->
+          <div class="row" style="margin-top:8px">
+            <form method="post" class="row grow">
+              <input type="hidden" name="action" value="edit_client">
+              <input type="hidden" name="id" value="{{ c.id }}">
+              <div class="grow"><input name="name" value="{{ c.name }}"></div>
+              <div class="grow"><input name="note" value="{{ c.note or '' }}" placeholder="Note"></div>
+              <div><button class="btn small">Salva</button></div>
+            </form>
+            <form method="post" onsubmit="return confirm('Eliminare il cliente? Anche i cantieri collegati verranno rimossi.')">
+              <input type="hidden" name="action" value="delete_client">
+              <input type="hidden" name="id" value="{{ c.id }}">
+              <button class="btn danger small">Elimina</button>
+            </form>
+          </div>
+
+          <hr style="border:none;border-top:1px solid #1f2a44;margin:10px 0">
+
+          <!-- Nuovo cantiere per questo cliente -->
+          <details>
+            <summary>Aggiungi cantiere</summary>
+            <form method="post" style="margin-top:8px">
+              <input type="hidden" name="action" value="add_site">
+              <input type="hidden" name="client_id" value="{{ c.id }}">
+              <div class="row">
+                <div class="grow"><input name="name" placeholder="Nome cantiere" required></div>
+                <div class="grow"><input name="address" placeholder="Indirizzo (opz.)"></div>
+              </div>
+              <div style="margin-top:8px"><button class="btn small">Aggiungi cantiere</button></div>
+            </form>
+          </details>
+
+          <!-- Elenco cantieri del cliente -->
+          {% set sites = (sites_by_client.get(c.id) or []) %}
+          {% if sites %}
+            <table style="margin-top:10px">
+              <thead><tr><th>Nome</th><th>Indirizzo</th><th>Confermato</th><th>Azione</th></tr></thead>
+              <tbody>
+                {% for s in sites %}
+                  <tr>
+                    <td>{{ s.name }}</td>
+                    <td>{{ s.address or '' }}</td>
+                    <td>{{ 'SI' if s.is_confirmed else 'NO' }}</td>
+                    <td>
+                      <form method="post" class="row" style="gap:6px">
+                        <input type="hidden" name="id" value="{{ s.id }}">
+                        <button class="btn secondary small" name="action" value="confirm_site" {% if s.is_confirmed %}disabled{% endif %}>Conferma</button>
+                        <button class="btn small" name="action" value="edit_site">Salva</button>
+                        <input type="hidden" name="name" value="{{ s.name }}">
+                        <input type="hidden" name="address" value="{{ s.address or '' }}">
+                      </form>
+
+                      <details style="margin-top:6px">
+                        <summary>Modifica cantiere</summary>
+                        <form method="post" class="row" style="margin-top:6px;gap:6px">
+                          <input type="hidden" name="action" value="edit_site">
+                          <input type="hidden" name="id" value="{{ s.id }}">
+                          <div class="grow"><input name="name" value="{{ s.name }}"></div>
+                          <div class="grow"><input name="address" value="{{ s.address or '' }}"></div>
+                          <div><button class="btn small">Salva</button></div>
+                        </form>
+                        <form method="post" style="margin-top:6px" onsubmit="return confirm('Eliminare il cantiere?')">
+                          <input type="hidden" name="action" value="delete_site">
+                          <input type="hidden" name="id" value="{{ s.id }}">
+                          <button class="btn danger small">Elimina</button>
+                        </form>
+                      </details>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          {% else %}
+            <div class="empty" style="margin-top:8px">Nessun cantiere.</div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty">Nessun cliente.</div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

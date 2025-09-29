@@ -1,0 +1,51 @@
+{% extends "_layout.html" %}
+{% block content %}
+<div class="card p-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h5>Quotazione attività extra</h5>
+  </div>
+  <table class="table align-middle">
+    <thead>
+      <tr>
+        <th>Data</th><th>Cantiere</th><th>Descrizione</th><th>UM</th><th>Q.tà</th>
+        <th>Prezzo unit.</th><th>Valore</th><th>Foto</th><th>Approvata</th><th class="text-end">Salva</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for r in rows %}
+      <tr>
+        <form method="post">
+          <input type="hidden" name="extra_id" value="{{ r.id }}">
+          <td>{{ r.work_date }}</td>
+          <td>{{ r.site.name }}</td>
+          <td>{{ r.description }}</td>
+          <td>{{ r.unit }}</td>
+          <td>{{ r.qty }}</td>
+          <td style="max-width:140px">
+            <input class="form-control form-control-sm" type="number" name="unit_price" step="0.01" min="0"
+                   value="{{ r.unit_price if r.unit_price is not none else '' }}">
+          </td>
+          <td>
+            {% if r.unit_price is not none %}
+              {{ '%.2f'|format((r.qty or 0) * (r.unit_price or 0)) }}
+            {% else %}-{% endif %}
+          </td>
+          <td>{% if r.photo_path %}<a href="{{ url_for('static', filename=r.photo_path) }}" target="_blank">Apri</a>{% else %}-{% endif %}</td>
+          <td>
+            <select class="form-select form-select-sm" name="approved">
+              <option value="0" {% if not r.approved %}selected{% endif %}>No</option>
+              <option value="1" {% if r.approved %}selected{% endif %}>Sì</option>
+            </select>
+          </td>
+          <td class="text-end">
+            <button class="btn btn-sm btn-outline-primary">Salva</button>
+          </td>
+        </form>
+      </tr>
+    {% else %}
+      <tr><td colspan="10" class="text-muted">Nessuna attività extra</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

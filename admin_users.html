@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Gestione Utenti{% endblock %}
+{% block content %}
+<h1 class="page-title">Utenti</h1>
+
+<div class="grid cols-2">
+  <div class="card">
+    <h3>Crea nuovo utente</h3>
+    <form method="post">
+      <input type="hidden" name="action" value="create">
+      <div class="row">
+        <div class="grow">
+          <label>Username</label>
+          <input name="username" required>
+        </div>
+        <div class="grow">
+          <label>Password</label>
+          <input type="password" name="password" required>
+        </div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <div class="grow">
+          <label>Ruolo</label>
+          <select name="role">
+            <option value="operator">Operatore</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        <div style="align-self:flex-end">
+          <label><input type="checkbox" name="is_active" checked> Attivo</label>
+        </div>
+      </div>
+      <div style="margin-top:10px"><button class="btn">Crea</button></div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h3>Utenti esistenti</h3>
+    {% if users %}
+      <table>
+        <thead><tr><th>ID</th><th>Username</th><th>Ruolo</th><th>Stato</th><th>Azione</th></tr></thead>
+        <tbody>
+        {% for u in users %}
+          <tr>
+            <td>{{ u.id }}</td>
+            <td>{{ u.username }}</td>
+            <td>{{ u.role }}</td>
+            <td>{{ 'attivo' if u.is_active else 'disattivo' }}</td>
+            <td>
+              <details>
+                <summary>Modifica</summary>
+                <form method="post" class="row" style="margin-top:8px">
+                  <input type="hidden" name="action" value="update">
+                  <input type="hidden" name="id" value="{{ u.id }}">
+                  <div class="grow"><input name="username" value="{{ u.username }}" placeholder="Username"></div>
+                  <div class="grow"><input name="password" type="password" placeholder="Nuova password (opz.)"></div>
+                  <div>
+                    <select name="role">
+                      <option value="operator" {{ 'selected' if u.role=='operator' else '' }}>Operatore</option>
+                      <option value="admin" {{ 'selected' if u.role=='admin' else '' }}>Admin</option>
+                    </select>
+                  </div>
+                  <div style="align-self:center">
+                    <label><input type="checkbox" name="is_active" {{ 'checked' if u.is_active else '' }}> Attivo</label>
+                  </div>
+                  <div><button class="btn small">Salva</button></div>
+                </form>
+                <form method="post" style="margin-top:6px;display:inline-block">
+                  <input type="hidden" name="action" value="toggle">
+                  <input type="hidden" name="id" value="{{ u.id }}">
+                  <button class="btn secondary small" type="submit">Attiva/Disattiva</button>
+                </form>
+                {% if u.id != current_user.id %}
+                <form method="post" style="margin-top:6px;display:inline-block" onsubmit="return confirm('Confermi eliminazione utente?')">
+                  <input type="hidden" name="action" value="delete">
+                  <input type="hidden" name="id" value="{{ u.id }}">
+                  <button class="btn danger small" type="submit">Elimina</button>
+                </form>
+                {% endif %}
+              </details>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="empty">Nessun utente.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

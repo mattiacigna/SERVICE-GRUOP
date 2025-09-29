@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Dashboard Operatore{% endblock %}
+{% block content %}
+<h1 class="page-title">Oggi: {{ today.strftime('%d/%m/%Y') }}</h1>
+<div class="cards grid">
+  {% if logs %}
+    {% for e in logs %}
+      <div class="card">
+        <div><strong>Cantiere:</strong> {{ e.assignment.site.name }}</div>
+        <div><strong>Attività:</strong> {{ e.assignment.activity_type.name }} ({{ e.assignment.activity_type.unit }})</div>
+        <div><strong>Quantità:</strong> {{ '%.2f'|format(e.quantity) }}</div>
+        {% if e.note %}<div><strong>Note:</strong> {{ e.note }}</div>{% endif %}
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="card empty">Nessuna registrazione per oggi.</div>
+  {% endif %}
+</div>
+<div class="card" style="margin-top:14px">
+  <a class="btn" href="{{ url_for('operator_logs') }}">Inserisci/Modifica Quantità</a>
+</div>
+{% endblock %}

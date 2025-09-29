@@ -1,129 +1,88 @@
-{% extends "base.html" %}
+{% extends "_layout.html" %}
 {% block content %}
-<div class="container py-4">
-  <h2 class="mb-3">Attrezzature</h2>
-
-  {# Admin/Capo: inserimento nuova attrezzatura #}
-  {% if current_user.is_admin or current_user.role in ['admin','capo'] %}
-  <div class="card shadow-sm mb-4">
-    <div class="card-header">Nuova attrezzatura</div>
-    <div class="card-body">
-      <form method="post" action="{{ url_for('equipment') }}" class="row g-2">
-        <div class="col-md-2"><input name="code" class="form-control" placeholder="Codice" required></div>
-        <div class="col-md-4"><input name="description" class="form-control" placeholder="Descrizione" required></div>
-        <div class="col-md-2"><input name="qty" type="number" min="1" class="form-control" value="1"></div>
-        <div class="col-md-3">
-          <select name="site_id" class="form-select">
-            <option value="">— Cantiere (opz.) —</option>
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card p-4">
+      <h5>Nuova attrezzatura</h5>
+      <form method="post">
+        <div class="mb-2">
+          <label class="form-label">Codice</label>
+          <input class="form-control" name="code" required>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Descrizione</label>
+          <input class="form-control" name="description" required>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Quantità</label>
+          <input class="form-control" name="qty" type="number" min="1" value="1">
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Cantiere</label>
+          <select class="form-select" name="site_id">
+            <option value="">—</option>
             {% for s in sites %}
               <option value="{{ s.id }}">{{ s.name }}</option>
             {% endfor %}
           </select>
         </div>
-        <div class="col-md-1 d-grid">
-          <button class="btn btn-primary">Aggiungi</button>
+        <div class="mb-3">
+          <label class="form-label">Stato</label>
+          <select class="form-select" name="status">
+            <option value="disponibile">Disponibile</option>
+            <option value="occupato">Occupato</option>
+            <option value="rotto">Rotto</option>
+            <option value="manutenzione">Manutenzione</option>
+          </select>
         </div>
+        <button class="btn btn-primary">Salva</button>
       </form>
     </div>
   </div>
-  {% endif %}
 
-  {# Operatore: attrezzature dei MIEI cantieri #}
-  {% if current_user.role == 'operatore' %}
-    {% set my_site_ids = (my_sites or sites) | map(attribute='id') | list %}
-    <div class="card shadow-sm mb-4">
-      <div class="card-header d-flex align-items-center justify-content-between">
-        <span><i class="bi bi-pin-map me-2"></i>Attrezzature dei miei cantieri</span>
-        <small class="text-muted">Mostra solo quelle assegnate ai cantieri a cui sei associato</small>
-      </div>
-      <div class="card-body table-responsive">
-        <table class="table align-middle">
-          <thead><tr>
-            <th>ID</th><th>Codice</th><th>Descrizione</th><th>Q.tà</th><th>Cantiere</th><th>Stato</th>
-          </tr></thead>
-          <tbody>
-            {% set found = false %}
-            {% for e in equipments %}
-              {% if e.site_id in my_site_ids %}
-                {% set found = true %}
-                <tr>
-                  <td>{{ e.id }}</td>
-                  <td>{{ e.code }}</td>
-                  <td>{{ e.description }}</td>
-                  <td>{{ e.qty }}</td>
-                  <td>
-                    {% set s = ( (my_sites or sites)|selectattr('id','equalto',e.site_id)|list|first ) %}
-                    {{ s.name if s else ('ID ' ~ e.site_id) }}
-                  </td>
-                  <td><span class="badge bg-secondary text-uppercase">{{ e.status or 'disponibile' }}</span></td>
-                </tr>
-              {% endif %}
-            {% endfor %}
-            {% if not found %}
-              <tr><td colspan="6" class="text-muted">Nessuna attrezzatura assegnata ai tuoi cantieri.</td></tr>
-            {% endif %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  {% endif %}
-
-  {# Elenco completo (solo admin/capo possono modificare/eliminare) #}
-  <div class="card shadow-sm">
-    <div class="card-header">Tutte le attrezzature</div>
-    <div class="card-body table-responsive">
+  <div class="col-lg-8">
+    <div class="card p-4">
+      <h5>Attrezzature</h5>
       <table class="table align-middle">
-        <thead>
-          <tr>
-            <th>ID</th><th>Codice</th><th>Descrizione</th><th>Q.tà</th><th>Cantiere</th><th>Stato</th>
-            {% if current_user.is_admin or current_user.role in ['admin','capo'] %}
-              <th style="width:1%"></th>
-              <th style="width:1%"></th>
-            {% endif %}
-          </tr>
-        </thead>
+        <thead><tr><th>Codice</th><th>Descrizione</th><th>Cantiere</th><th>Stato</th><th class="text-end">Azioni</th></tr></thead>
         <tbody>
         {% for e in equipments %}
           <tr>
-            <td>{{ e.id }}</td>
             <td>{{ e.code }}</td>
             <td>{{ e.description }}</td>
-            <td>{{ e.qty }}</td>
-            <td>
-              {% if e.site_id %}
-                {% set s = ((all_sites or sites)|selectattr('id','equalto',e.site_id)|list|first) %}
-                {{ s.name if s else ('ID ' ~ e.site_id) }}
-              {% else %}
-                —
-              {% endif %}
-            </td>
-            <td><span class="badge bg-secondary text-uppercase">{{ e.status or 'disponibile' }}</span></td>
-
-            {% if current_user.is_admin or current_user.role in ['admin','capo'] %}
+            <td>{{ e.site.name if e.site else "-" }}</td>
             <td>
               <form method="post" action="{{ url_for('equipment_status', eid=e.id) }}" class="d-flex gap-2">
-                <select name="status" class="form-select form-select-sm">
+                <select class="form-select form-select-sm" name="status" style="max-width:180px">
                   {% for st in ['disponibile','occupato','rotto','manutenzione'] %}
-                    <option value="{{ st }}" {% if e.status==st %}selected{% endif %}>{{ st|capitalize }}</option>
+                    <option value="{{ st }}" {% if e.status==st %}selected{% endif %}>{{ st }}</option>
                   {% endfor %}
                 </select>
-                <button class="btn btn-sm btn-outline-light">Aggiorna</button>
+                <button class="btn btn-sm btn-outline-primary">Aggiorna</button>
               </form>
             </td>
-            <td>
-              <!-- FIX: niente endpoint inesistente; uso POST su 'equipment' con delete_eid -->
-              <form method="post" action="{{ url_for('equipment') }}" onsubmit="return confirm('Eliminare questa attrezzatura?');">
-                <input type="hidden" name="delete_eid" value="{{ e.id }}">
-                <button class="btn btn-sm btn-danger">Elimina</button>
+            <td class="text-end">
+              <form method="post" action="{{ url_for('equipment_delete', eid=e.id) }}"
+                    onsubmit="return confirm('Eliminare attrezzatura?')">
+                <button class="btn btn-sm btn-outline-danger">Elimina</button>
               </form>
             </td>
-            {% endif %}
           </tr>
         {% else %}
-          <tr><td colspan="8" class="text-muted">Nessuna attrezzatura.</td></tr>
+          <tr><td colspan="5" class="text-muted">Nessuna attrezzatura</td></tr>
         {% endfor %}
         </tbody>
       </table>
+
+      <hr>
+      <h6>Ultimi alert</h6>
+      <ul class="mb-0">
+        {% for a in alerts %}
+          <li>{{ a.created_at.strftime('%Y-%m-%d %H:%M') }} — {{ a.message }}</li>
+        {% else %}
+          <li class="text-muted">Nessun alert</li>
+        {% endfor %}
+      </ul>
     </div>
   </div>
 </div>

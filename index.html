@@ -1,15 +1,9 @@
 {% extends "base.html" %}
+{% block title %}Benvenuto{% endblock %}
 {% block content %}
-<div class="row g-4">
-  <div class="col-md-6 mx-auto">
-    <div class="card p-4 text-center">
-      <h1 class="mb-3">Gestionale Cantieri</h1>
-      {% if not current_user.is_authenticated %}
-      <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg"><i class="bi bi-box-arrow-in-right"></i> Entra</a>
-      {% else %}
-      <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-lg"><i class="bi bi-speedometer2"></i> Dashboard</a>
-      {% endif %}
-    </div>
+  <div class="card">
+    <h1 class="page-title">Benvenuto</h1>
+    <p>Accedi per usare il gestionale.</p>
+    <a class="btn" href="{{ url_for('login') }}">Vai al Login</a>
   </div>
-</div>
 {% endblock %}
