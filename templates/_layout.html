@@ -2,72 +2,77 @@
 <html lang="it">
 <head>
   <meta charset="utf-8">
-  <title>{{ title or "Gestionale Home3D" }}</title>
+  <title>Gestionale</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <!-- Bootstrap 5 -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-    body{background:#f6f7fb}
-    .navbar-brand{font-weight:700}
-    .card{border:0; box-shadow:0 6px 18px rgba(20,20,40,.06)}
-    .btn-primary{background:#3b82f6;border-color:#3b82f6}
-    .btn-outline-primary{border-color:#3b82f6;color:#3b82f6}
-    .btn-outline-primary:hover{background:#3b82f6;color:#fff}
-    .form-control, .form-select{border-radius:.6rem}
-    .badge-soft{background:rgba(59,130,246,.1); color:#1d4ed8}
-    img.thumb{max-height:120px;border-radius:10px}
-    .nav-link.active{font-weight:600}
+    body { padding-top: 70px; }
+    .navbar-brand { font-weight: 700; }
   </style>
 </head>
 <body>
-<nav class="navbar navbar-expand-lg bg-white border-bottom sticky-top">
-  <div class="container">
-    <a class="navbar-brand" href="{{ url_for('dashboard') }}">Home3D</a>
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain">
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="{{ url_for('dashboard') }}">Gestionale</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
       <span class="navbar-toggler-icon"></span>
     </button>
-    <div id="navMain" class="collapse navbar-collapse">
-      {% if current_user.is_authenticated %}
-        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-          {% if current_user.role == "admin" %}
-            <li class="nav-item"><a class="nav-link" href="{{ url_for('admin_home') }}">Admin</a></li>
+    <div class="collapse navbar-collapse" id="nav">
+      <ul class="navbar-nav me-auto">
+
+        {% if current_user.is_authenticated %}
+          <!-- voci comuni -->
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a></li>
+
+          {% if current_user.role == 'admin' %}
+            <!-- area admin: usa gli endpoint REALI presenti nell'app -->
             <li class="nav-item"><a class="nav-link" href="{{ url_for('clients_sites') }}">Clienti & Cantieri</a></li>
-            <li class="nav-item"><a class="nav-link" href="{{ url_for('catalogo') }}">Catalogo</a></li>
             <li class="nav-item"><a class="nav-link" href="{{ url_for('users') }}">Utenti</a></li>
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('catalogo') }}">Catalogo</a></li>
             <li class="nav-item"><a class="nav-link" href="{{ url_for('vehicles') }}">Veicoli</a></li>
             <li class="nav-item"><a class="nav-link" href="{{ url_for('equipment') }}">Attrezzature</a></li>
-            <li class="nav-item"><a class="nav-link" href="{{ url_for('admin_attivita_extra') }}">Attività extra</a></li>
             <li class="nav-item"><a class="nav-link" href="{{ url_for('admin_report') }}">Report</a></li>
           {% else %}
+            <!-- area capo -->
             <li class="nav-item"><a class="nav-link" href="{{ url_for('capo_attivita') }}">Attività</a></li>
-            <li class="nav-item"><a class="nav-link" href="{{ url_for('capo_attivita_extra') }}">Attività extra</a></li>
-            <li class="nav-item"><a class="nav-link" href="{{ url_for('capo_spese') }}">Spese cantiere</a></li>
-            <li class="nav-item"><a class="nav-link" href="{{ url_for('capo_spese_veicoli') }}">Spese veicoli</a></li>
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('capo_spese') }}">Spese Cantiere</a></li>
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('capo_spese_veicoli') }}">Spese Veicoli</a></li>
           {% endif %}
-        </ul>
-        <div class="d-flex align-items-center gap-3">
-          <span class="text-muted small">Ciao, {{ current_user.full_name or current_user.username }}</span>
-          <a class="btn btn-sm btn-outline-primary" href="{{ url_for('logout') }}">Logout</a>
-        </div>
-      {% endif %}
+        {% endif %}
+      </ul>
+
+      <ul class="navbar-nav">
+        {% if current_user.is_authenticated %}
+          <li class="nav-item">
+            <span class="navbar-text me-3">
+              {{ current_user.full_name or current_user.username }} ({{ current_user.role }})
+            </span>
+          </li>
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('logout') }}">Logout</a></li>
+        {% else %}
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('login') }}">Login</a></li>
+        {% endif %}
+      </ul>
     </div>
   </div>
 </nav>
 
-<main class="container my-4">
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      <div class="mb-3">
-        {% for cat,msg in messages %}
-          <div class="alert alert-{{ 'warning' if cat=='warning' else ('danger' if cat=='danger' else ('success' if cat=='success' else 'info')) }} shadow-sm">
-            {{ msg }}
+<div class="container">
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% if msgs %}
+      <div class="mt-2">
+        {% for cat, m in msgs %}
+          <div class="alert alert-{{ 'warning' if cat=='message' else cat }} alert-dismissible fade show" role="alert">
+            {{ m }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
           </div>
         {% endfor %}
       </div>
     {% endif %}
   {% endwith %}
+
   {% block content %}{% endblock %}
-</main>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
