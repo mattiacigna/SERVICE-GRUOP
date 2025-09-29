@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Attrezzature{% endblock %}
+{% block content %}
+<h1 class="page-title">Attrezzature</h1>
+
+<div class="grid cols-2">
+  <div class="card">
+    <h3>Nuova attrezzatura</h3>
+    <form method="post">
+      <input type="hidden" name="action" value="add_equipment">
+      <div class="row">
+        <div class="grow"><input name="name" placeholder="Nome" required></div>
+        <div style="width:180px">
+          <select name="status">
+            <option value="ok">OK</option>
+            <option value="manutenzione">Manutenzione</option>
+            <option value="guasta">Guasta</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:8px"><button class="btn">Aggiungi</button></div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h3>Assegna a cliente/cantiere</h3>
+    <form method="post">
+      <input type="hidden" name="action" value="assign_equipment">
+      <div class="row">
+        <div class="grow">
+          <label>Attrezzatura</label>
+          <select name="equipment_id" required>
+            {% for e in equipments %}<option value="{{ e.id }}">{{ e.name }} ({{ e.status }})</option>{% endfor %}
+          </select>
+        </div>
+        <div class="grow">
+          <label>Cliente</label>
+          <select name="client_id">
+            <option value="">—</option>
+            {% for c in clients %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="grow">
+          <label>Cantiere</label>
+          <select name="site_id">
+            <option value="">—</option>
+            {% for s in sites %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:8px"><button class="btn">Assegna</button></div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h3>Elenco</h3>
+    {% if equipments %}
+      <table>
+        <thead><tr><th>Nome</th><th>Stato</th><th>Azione</th></tr></thead>
+        <tbody>
+        {% for e in equipments %}
+          <tr>
+            <td>{{ e.name }}</td>
+            <td>
+              <form method="post" class="row" style="gap:6px">
+                <input type="hidden" name="action" value="set_status">
+                <input type="hidden" name="id" value="{{ e.id }}">
+                <select name="status">
+                  <option value="ok" {{ 'selected' if e.status=='ok' else '' }}>OK</option>
+                  <option value="manutenzione" {{ 'selected' if e.status=='manutenzione' else '' }}>Manutenzione</option>
+                  <option value="guasta" {{ 'selected' if e.status=='guasta' else '' }}>Guasta</option>
+                </select>
+                <button class="btn small">Aggiorna</button>
+              </form>
+            </td>
+            <td>
+              <form method="post" onsubmit="return confirm('Eliminare attrezzatura?')">
+                <input type="hidden" name="action" value="delete_equipment">
+                <input type="hidden" name="id" value="{{ e.id }}">
+                <button class="btn danger small">Elimina</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    {% else %}<div class="empty">Nessuna attrezzatura.</div>{% endif %}
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,69 @@
+{% extends "_layout.html" %}
+{% block content %}
+<div class="row">
+  <div class="col-lg-5">
+    <div class="card p-4">
+      <h5>Nuova attività extra</h5>
+      <form method="post" enctype="multipart/form-data">
+        <div class="mb-2">
+          <label class="form-label">Data</label>
+          <input type="date" class="form-control" name="work_date" value="{{ date.today() }}">
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Cantiere</label>
+          <select class="form-select" name="site_id" required>
+            <option value="">—</option>
+            {% for a in assignments %}
+              <option value="{{ a.site.id }}">{{ a.site.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Descrizione</label>
+          <input class="form-control" name="description" required>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Unità</label>
+          <input class="form-control" name="unit" placeholder="u / mq / m / ... " value="u">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Quantità</label>
+          <input class="form-control" type="number" step="0.01" min="0" name="qty" value="1">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Foto (opzionale)</label>
+          <input class="form-control" type="file" name="photo" accept="image/*,application/pdf">
+        </div>
+        <button class="btn btn-primary w-100">Invia</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card p-4">
+      <h5>Le mie attività extra</h5>
+      <table class="table align-middle">
+        <thead><tr><th>Data</th><th>Cantiere</th><th>Descrizione</th><th>Q.tà</th><th>Prezzo</th><th>Stato</th><th>Foto</th></tr></thead>
+        <tbody>
+        {% for r in rows %}
+          <tr>
+            <td>{{ r.work_date }}</td>
+            <td>{{ r.site.name }}</td>
+            <td>{{ r.description }}</td>
+            <td>{{ r.qty }} {{ r.unit }}</td>
+            <td>{{ r.unit_price if r.unit_price is not none else '-' }}</td>
+            <td>
+              {% if r.approved %}<span class="badge bg-success">Approvata</span>
+              {% else %}<span class="badge bg-secondary">In attesa</span>{% endif %}
+            </td>
+            <td>{% if r.photo_path %}<a href="{{ url_for('static', filename=r.photo_path) }}" target="_blank">Apri</a>{% else %}-{% endif %}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="7" class="text-muted">Nessuna attività extra</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

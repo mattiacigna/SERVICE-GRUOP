@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Veicoli{% endblock %}
+{% block content %}
+<h1 class="page-title">Veicoli</h1>
+
+<div class="grid cols-2">
+  <div class="card">
+    <h3>Nuovo veicolo</h3>
+    <form method="post">
+      <input type="hidden" name="action" value="add_vehicle">
+      <div class="row">
+        <div class="grow"><input name="plate" placeholder="Targa" required></div>
+        <div class="grow"><input name="model" placeholder="Modello"></div>
+      </div>
+      <div style="margin-top:8px"><button class="btn">Aggiungi</button></div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h3>Assegna veicolo</h3>
+    <form method="post">
+      <input type="hidden" name="action" value="assign_vehicle">
+      <div class="row">
+        <div class="grow">
+          <label>Veicolo</label>
+          <select name="vehicle_id" required>
+            {% for v in vehicles %}<option value="{{ v.id }}">{{ v.plate }} - {{ v.model }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="grow">
+          <label>Cliente</label>
+          <select name="client_id">
+            <option value="">—</option>
+            {% for c in clients %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="grow">
+          <label>Cantiere</label>
+          <select name="site_id">
+            <option value="">—</option>
+            {% for s in sites %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="grow">
+          <label>Operatore</label>
+          <select name="operator_id">
+            <option value="">—</option>
+            {% for o in operators %}<option value="{{ o.id }}">{{ o.username }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:8px"><button class="btn">Assegna</button></div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h3>Spesa veicolo</h3>
+    <form method="post">
+      <input type="hidden" name="action" value="add_expense">
+      <div class="row">
+        <div class="grow">
+          <label>Veicolo</label>
+          <select name="vehicle_id" required>
+            {% for v in vehicles %}<option value="{{ v.id }}">{{ v.plate }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="grow">
+          <label>Cantiere</label>
+          <select name="site_id">
+            <option value="">—</option>
+            {% for s in sites %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="grow"><label>Data</label><input type="date" name="date" value="{{ (now or None)|default('', true) }}"></div>
+        <div class="grow"><label>Importo</label><input type="number" step="0.01" name="amount" required></div>
+      </div>
+      <label style="margin-top:6px">Descrizione</label>
+      <input name="description" placeholder="Descrizione">
+      <div style="margin-top:8px"><button class="btn">Registra</button></div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h3>Spese recenti</h3>
+    {% if expenses %}
+    <table>
+      <thead><tr><th>Data</th><th>Veicolo</th><th>Cantiere</th><th>Importo</th><th>Descrizione</th></tr></thead>
+      <tbody>
+      {% for e in expenses %}
+        <tr>
+          <td>{{ e.expense_date }}</td>
+          <td>{{ e.vehicle.plate if e.vehicle }}</td>
+          <td>{{ e.site.name if e.site }}</td>
+          <td>{{ '%.2f'|format(e.amount) }}</td>
+          <td>{{ e.description }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="empty">Nessuna spesa.</div>{% endif %}
+  </div>
+</div>
+{% endblock %}

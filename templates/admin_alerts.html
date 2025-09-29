@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Alert Admin{% endblock %}
+{% block content %}
+<h1 class="page-title">Alert Modifiche Retrodatate</h1>
+
+<form method="post" style="margin-bottom:10px">
+  <input type="hidden" name="action" value="mark_all_read">
+  <button class="btn">Segna tutti come letti</button>
+</form>
+
+<div class="card">
+  {% if alerts %}
+    <table>
+      <thead><tr><th>Data</th><th>Operatore</th><th>Messaggio</th><th>Stato</th><th>Azione</th></tr></thead>
+      <tbody>
+      {% for a in alerts %}
+        <tr>
+          <td>{{ a.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+          <td>{{ a.operator.username if a.operator }}</td>
+          <td>{{ a.message }}</td>
+          <td>{{ 'Letto' if a.is_read else 'Non letto' }}</td>
+          <td>
+            {% if not a.is_read %}
+            <form method="post">
+              <input type="hidden" name="action" value="mark_read">
+              <input type="hidden" name="id" value="{{ a.id }}">
+              <button class="btn secondary small">Segna letto</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="empty">Nessun alert.</div>
+  {% endif %}
+</div>
+{% endblock %}

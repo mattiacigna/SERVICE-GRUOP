@@ -2,77 +2,76 @@
 <html lang="it">
 <head>
   <meta charset="utf-8">
+  <title>{% block title %}Gestionale{% endblock %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Gestionale</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
   <style>
-    body{background:#121212;color:#fff}
-    .navbar{background:#1e1e1e}
-    .nav-link{color:#ddd!important}
-    .nav-link:hover{color:#fff!important}
-    .card{background:#1e1e1e;color:#fff}
+    :root { --bg:#0b1020; --card:#111833; --accent:#5eead4; --text:#e5e7eb; --muted:#9ca3af; }
+    *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial;background:radial-gradient(60rem 60rem at 120% -10%,#1f2a44 0,#0b1020 60%);color:var(--text)}
+    a{color:var(--accent);text-decoration:none}
+    header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;position:sticky;top:0;background:#0b1020aa;backdrop-filter:blur(6px);border-bottom:1px solid #1f2a44}
+    .brand{font-weight:700;letter-spacing:.4px}
+    nav a{margin:0 10px}
+    .container{max-width:1100px;margin:24px auto;padding:0 16px}
+    .flash{padding:10px 14px;border-radius:10px;margin-bottom:10px}
+    .flash.success{background:#103b2e;color:#a7f3d0;border:1px solid #065f46}
+    .flash.warning{background:#3b2a10;color:#fde68a;border:1px solid #92400e}
+    .flash.danger{background:#3b1010;color:#fecaca;border:1px solid #7f1d1d}
+    .grid{display:grid;gap:14px}
+    .grid.cols-2{grid-template-columns:1fr 1fr}
+    .grid.cols-3{grid-template-columns:repeat(3,1fr)}
+    .card{background:linear-gradient(180deg,#121a35,#0f1530);border:1px solid #1f2a44;border-radius:16px;padding:16px;transform:translateZ(0);transition:.25s;box-shadow:0 10px 30px #0004}
+    .card:hover{transform:translateY(-2px) scale(1.01)}
+    .btn{display:inline-block;background:linear-gradient(90deg,#16a34a,#06b6d4);color:#001; font-weight:600;padding:10px 14px;border-radius:12px;border:none;cursor:pointer}
+    .btn.secondary{background:#1f2a44;color:#cbd5e1;border:1px solid #243053}
+    .btn.danger{background:#b91c1c;color:#fee2e2}
+    .btn.small{padding:6px 10px;font-size:.9rem}
+    input,select,textarea{width:100%;background:#0c1228;border:1px solid #1f2a44;color:var(--text);padding:10px;border-radius:10px}
+    label{font-size:.9rem;color:var(--muted)}
+    table{width:100%;border-collapse:separate;border-spacing:0 8px}
+    th,td{padding:10px;background:#0c1228;border:1px solid #1f2a44}
+    th{color:#a5b4fc;background:#121a35}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    .grow{flex:1}
+    .page-title{font-size:1.4rem;margin:6px 0 14px}
+    .empty{color:var(--muted);padding:8px}
   </style>
+  {% block head %}{% endblock %}
 </head>
 <body>
-  <nav class="navbar navbar-expand-lg navbar-dark">
-    <div class="container-fluid">
-      <a class="navbar-brand" href="{{ url_for('dashboard') }}"><i class="bi bi-house-door"></i> Gestionale</a>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
-        <span class="navbar-toggler-icon"></span>
-      </button>
-
-      <div class="collapse navbar-collapse" id="nav">
-        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-          {% if current_user.is_authenticated %}
-            <li class="nav-item"><a class="nav-link" href="{{ url_for('dashboard') }}"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
-          {% endif %}
-
-          {% if current_user.is_authenticated and current_user.role == 'admin' %}
-            <li class="nav-item"><a class="nav-link" href="{{ url_for('users') }}"><i class="bi bi-people"></i> Gestione Utenti</a></li>
-            <li class="nav-item"><a class="nav-link" href="{{ url_for('clients_sites') }}"><i class="bi bi-building"></i> Clienti & Cantieri</a></li>
-            <li class="nav-item"><a class="nav-link" href="{{ url_for('catalogo') }}"><i class="bi bi-list-task"></i> Catalogo Attività</a></li>
-            <li class="nav-item"><a class="nav-link" href="{{ url_for('vehicles') }}"><i class="bi bi-truck"></i> Veicoli</a></li>
-            <li class="nav-item"><a class="nav-link" href="{{ url_for('equipment') }}"><i class="bi bi-tools"></i> Attrezzature</a></li>
-            <li class="nav-item"><a class="nav-link" href="{{ url_for('admin_report') }}"><i class="bi bi-clipboard-data"></i> Report</a></li>
-          {% endif %}
-
-          {% if current_user.is_authenticated and current_user.role != 'admin' %}
-            <li class="nav-item"><a class="nav-link" href="{{ url_for('capo_attivita') }}"><i class="bi bi-check2-square"></i> Attività</a></li>
-            <li class="nav-item"><a class="nav-link" href="{{ url_for('capo_spese') }}"><i class="bi bi-wallet2"></i> Spese cantiere</a></li>
-            <li class="nav-item"><a class="nav-link" href="{{ url_for('capo_spese_veicoli') }}"><i class="bi bi-fuel-pump"></i> Spese veicoli</a></li>
-          {% endif %}
-        </ul>
-
-        <ul class="navbar-nav ms-auto">
-          {% if current_user.is_authenticated %}
-            <li class="nav-item"><span class="nav-link disabled"><i class="bi bi-person-circle"></i> {{ current_user.username }}</span></li>
-            <li class="nav-item"><a class="nav-link" href="{{ url_for('logout') }}"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
-          {% else %}
-            <li class="nav-item"><a class="nav-link" href="{{ url_for('login') }}">Login</a></li>
-          {% endif %}
-        </ul>
-      </div>
-    </div>
-  </nav>
-
-  <div class="container mt-3">
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, message in messages %}
-          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-          </div>
-        {% endfor %}
+<header>
+  <div class="brand">🏗️ Gestionale</div>
+  <nav>
+    {% if current_user.is_authenticated %}
+      <a href="{{ url_for('dashboard') }}">Dashboard</a>
+      {% if current_user.role == 'admin' %}
+        <a href="{{ url_for('admin_users') }}">Utenti</a>
+        <a href="{{ url_for('admin_clients_sites') }}">Clienti & Cantieri</a>
+        <a href="{{ url_for('admin_catalogo') }}">Catalogo</a>
+        <a href="{{ url_for('admin_equipment') }}">Attrezzature</a>
+        <a href="{{ url_for('admin_vehicles') }}">Veicoli</a>
+        <a href="{{ url_for('admin_attivita_extra') }}">Attività Extra</a>
+        <a href="{{ url_for('admin_alerts') }}">Alert</a>
+        <a href="{{ url_for('admin_report') }}">Report</a>
+      {% else %}
+        <a href="{{ url_for('operator_logs') }}">Quantità</a>
       {% endif %}
-    {% endwith %}
-  </div>
+      <a href="{{ url_for('logout') }}">Logout</a>
+    {% else %}
+      <a href="{{ url_for('login') }}">Login</a>
+    {% endif %}
+  </nav>
+</header>
 
-  <main class="container my-4">
-    {% block content %}{% endblock %}
-  </main>
+<div class="container">
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% if msgs %}
+      {% for cat, msg in msgs %}
+        <div class="flash {{cat}}">{{ msg }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  {% block content %}{% endblock %}
+</div>
 </body>
 </html>

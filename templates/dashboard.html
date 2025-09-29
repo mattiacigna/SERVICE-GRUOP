@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Dashboard</h2>
+<div class="tiles">
+  {% if current_user.role == 'admin' %}
+    <a class="tile tilt" href="{{ url_for('admin_users') }}"><h3>Utenti</h3><p>Gestisci utenti e ruoli</p></a>
+    <a class="tile tilt" href="{{ url_for('admin_clients_sites') }}"><h3>Clienti & Cantieri</h3><p>Assegna attività</p></a>
+    <a class="tile tilt" href="{{ url_for('admin_equipment') }}"><h3>Attrezzature</h3><p>Stato e assegnazioni</p></a>
+    <a class="tile tilt" href="{{ url_for('admin_vehicles') }}"><h3>Veicoli</h3><p>Assegnazioni e spese</p></a>
+    <a class="tile tilt" href="{{ url_for('admin_attivita_extra') }}"><h3>Attività Extra</h3><p>Registrazioni</p></a>
+    <a class="tile tilt" href="{{ url_for('admin_report') }}"><h3>Report</h3><p>Quantità & Spese</p></a>
+    <a class="tile tilt" href="{{ url_for('admin_alerts') }}"><h3>Alert</h3><p>Modifiche retroattive</p>
+      {% if admin_unread_alerts %}<span class="badge big">{{ admin_unread_alerts }}</span>{% endif %}</a>
+  {% else %}
+    <div class="card">
+      <h3>Ciao {{ current_user.username }}</h3>
+      <p>Apri l’attività assegnata e aggiorna le quantità dal calendario.<br>
+      Puoi anche registrare attività extra e spese dalla voce dedicata.</p>
+      <a class="button primary" href="{{ url_for('admin_attivita_extra') }}">Vai a Attività Extra</a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Quantità Operatore{% endblock %}
+{% block content %}
+<h1 class="page-title">Inserimento Quantità</h1>
+
+<div class="card">
+  <h3>Nuova riga</h3>
+  <form method="post">
+    <input type="hidden" name="action" value="add_entry">
+    <div class="row">
+      <div class="grow">
+        <label>Assegnazione</label>
+        <select name="assignment_id" required>
+          {% for a in assignments %}
+            <option value="{{ a.id }}">{{ a.site.name }} — {{ a.activity_type.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="width:200px">
+        <label>Data</label>
+        <input type="date" name="work_date" value="{{ (today or namespace()).value or '' }}" required>
+      </div>
+      <div style="width:160px">
+        <label>Quantità</label>
+        <input name="quantity" type="number" step="0.01" min="0" value="0">
+      </div>
+    </div>
+    <label style="margin-top:6px">Note</label>
+    <input name="note" placeholder="Opzionale">
+    <div style="margin-top:8px"><button class="btn">Registra</button></div>
+  </form>
+</div>
+
+<div class="card" style="margin-top:12px">
+  <h3>Filtro</h3>
+  <form method="get" class="row">
+    <div class="grow">
+      <label>Da</label>
+      <input type="date" name="start" value="{{ start or '' }}">
+    </div>
+    <div class="grow">
+      <label>A</label>
+      <input type="date" name="end" value="{{ end or '' }}">
+    </div>
+    <div style="align-self:flex-end"><button class="btn">Filtra</button></div>
+  </form>
+</div>
+
+<div class="card" style="margin-top:12px">
+  <h3>Ultime registrazioni</h3>
+  {% if entries %}
+    <table>
+      <thead><tr><th>Data</th><th>Cantiere</th><th>Attività</th><th>Qty</th><th>Note</th><th>Azione</th></tr></thead>
+      <tbody>
+      {% for e in entries %}
+        <tr>
+          <td>{{ e.work_date.strftime('%d/%m/%Y') }}</td>
+          <td>{{ e.assignment.site.name }}</td>
+          <td>{{ e.assignment.activity_type.name }}</td>
+          <td>{{ '%.2f'|format(e.quantity) }}</td>
+          <td>{{ e.note or '' }}</td>
+          <td>
+            <details>
+              <summary>Modifica</summary>
+              <form method="post" class="row" style="margin-top:6px;gap:6px">
+                <input type="hidden" name="action" value="edit_entry">
+                <input type="hidden" name="id" value="{{ e.id }}">
+                <div><input type="date" name="work_date" value="{{ e.work_date.isoformat() }}"></div>
+                <div><input type="number" name="quantity" step="0.01" min="0" value="{{ '%.2f'|format(e.quantity) }}"></div>
+                <div class="grow"><input name="note" value="{{ e.note or '' }}"></div>
+                <div><button class="btn small">Salva</button></div>
+              </form>
+              <form method="post" style="margin-top:6px" onsubmit="return confirm('Eliminare riga?')">
+                <input type="hidden" name="action" value="delete_entry">
+                <input type="hidden" name="id" value="{{ e.id }}">
+                <button class="btn danger small">Elimina</button>
+              </form>
+            </details>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="empty">Nessun dato.</div>
+  {% endif %}
+</div>
+{% endblock %}

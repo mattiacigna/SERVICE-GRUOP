@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Attività — {{ site.name }} ({{ site.client.name }})</h2>
+<div class="grid two">
+  <div class="card tilt">
+    <h3>Nuova Attività</h3>
+    <form method="post" class="grid">
+      <input type="hidden" name="form_name" value="add_task">
+      <label>Nome attività <input name="task_name" required></label>
+      <label>UM <input name="unit" value="pz"></label>
+      <label>Assegna a
+        <select name="assigned_to_id">
+          <option value="">— Nessuno —</option>
+          {% for op in operators %}<option value="{{ op.id }}">{{ op.username }}</option>{% endfor %}
+        </select>
+      </label>
+      <button class="button primary">Aggiungi</button>
+    </form>
+  </div>
+  <div class="card">
+    <h3>Elenco Attività</h3>
+    <table class="table">
+      <thead><tr><th>ID</th><th>Attività</th><th>UM</th><th>Assegnata</th><th>Azioni</th></tr></thead>
+      <tbody>
+        {% for t in tasks %}
+        <tr>
+          <td>{{ t.id }}</td><td>{{ t.name }}</td><td>{{ t.unit }}</td><td>{{ t.assigned_to.username if t.assigned_to else "—" }}</td>
+          <td>
+            <details>
+              <summary class="button small">Modifica</summary>
+              <form method="post" class="inline-form">
+                <input type="hidden" name="form_name" value="update_task">
+                <input type="hidden" name="task_id" value="{{ t.id }}">
+                <label>UM <input name="unit" value="{{ t.unit }}"></label>
+                <label>Operatore
+                  <select name="assigned_to_id">
+                    <option value="">— Nessuno —</option>
+                    {% for op in operators %}
+                      <option value="{{ op.id }}" {% if t.assigned_to and op.id==t.assigned_to.id %}selected{% endif %}>{{ op.username }}</option>
+                    {% endfor %}
+                  </select>
+                </label>
+                <button class="button small primary">Salva</button>
+              </form>
+            </details>
+            {% if t.assigned_to and (current_user.role=='admin' or t.assigned_to.id==current_user.id) %}
+              <a class="button small" href="{{ url_for('operator_calendar', task_id=t.id) }}">Calendario</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

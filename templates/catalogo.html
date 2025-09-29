@@ -1,75 +1,100 @@
-{% extends "base.html" %}
+{% extends "_layout.html" %}
+
 {% block content %}
-<div class="container py-4">
-  <h2 class="mb-3">Catalogo attività</h2>
+<div class="container mt-4">
+  <h2>Catalogo attività</h2>
 
-  <!-- Nuova attività -->
-  <div class="card shadow-sm mb-4">
-    <div class="card-header">Nuova attività</div>
-    <div class="card-body">
-      <form method="post" action="{{ url_for('catalogo') }}" class="row g-2">
-        <div class="col-md-2"><input name="code" class="form-control" placeholder="Codice" required></div>
-        <div class="col-md-4"><input name="description" class="form-control" placeholder="Descrizione" required></div>
-        <div class="col-md-2"><input name="unit" class="form-control" placeholder="UM (es. mq)" required></div>
-        <div class="col-md-2"><input name="unit_price" type="number" step="0.01" min="0" class="form-control" placeholder="Prezzo unit." required></div>
-        <div class="col-md-2"><button class="btn btn-primary w-100">Aggiungi</button></div>
-      </form>
+  <!-- Inserisci nuova attività -->
+  <form method="post" class="row g-2 mb-4">
+    <div class="col-md-2">
+      <label class="form-label">Codice</label>
+      <input type="text" class="form-control" name="code" required>
     </div>
-  </div>
-
-  <!-- Assegna attività a cantiere (con ID numerici) -->
-  <div class="card shadow-sm mb-4">
-    <div class="card-header">Assegna attività a cantiere</div>
-    <div class="card-body">
-      <form method="post" action="{{ url_for('assign_activity') }}" class="row g-2">
-        <div class="col-md-3">
-          <input name="site_id" type="number" min="1" class="form-control" placeholder="ID Cantiere" required>
-          <div class="form-text">ID cantiere visibile nella pagina “Clienti & Cantieri”.</div>
-        </div>
-        <div class="col-md-3">
-          <input name="activity_id" type="number" min="1" class="form-control" placeholder="ID Attività" required>
-          <div class="form-text">ID dall’elenco attività qui sotto.</div>
-        </div>
-        <div class="col-md-3">
-          <input name="initial_qty" type="number" step="0.01" min="0" class="form-control" placeholder="Quantità iniziale" value="0">
-        </div>
-        <div class="col-md-3">
-          <button class="btn btn-outline-primary w-100">Assegna</button>
-        </div>
-      </form>
+    <div class="col-md-4">
+      <label class="form-label">Descrizione</label>
+      <input type="text" class="form-control" name="description" required>
     </div>
-  </div>
+    <div class="col-md-2">
+      <label class="form-label">Unità</label>
+      <input type="text" class="form-control" name="unit" required>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Prezzo Unitario (€)</label>
+      <input type="number" step="0.01" class="form-control" name="unit_price" required>
+    </div>
+    <div class="col-md-2 d-flex align-items-end">
+      <button class="btn btn-success w-100">Aggiungi</button>
+    </div>
+  </form>
 
   <!-- Elenco attività -->
-  <div class="card shadow-sm">
-    <div class="card-header">Elenco attività</div>
-    <div class="card-body table-responsive">
-      <table class="table align-middle">
-        <thead>
-          <tr>
-            <th>ID</th><th>Codice</th><th>Descrizione</th><th>UM</th><th>Prezzo</th><th style="width:1%"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for i in items %}
-          <tr>
-            <td>{{ i.id }}</td>
-            <td>{{ i.code }}</td>
-            <td>{{ i.description }}</td>
-            <td>{{ i.unit }}</td>
-            <td>€ {{ '%.2f'|format(i.unit_price or 0) }}</td>
-            <td class="text-end">
-              <form method="post" action="{{ url_for('delete_catalogo', aid=i.id) }}" onsubmit="return confirm('Eliminare?');">
-                <button class="btn btn-sm btn-danger">Elimina</button>
-              </form>
-            </td>
-          </tr>
-          {% else %}
-          <tr><td colspan="6" class="text-muted">Nessuna attività.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
+  <table class="table table-bordered table-striped">
+    <thead>
+      <tr>
+        <th>Codice</th>
+        <th>Descrizione</th>
+        <th>UM</th>
+        <th>Prezzo Unit.</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for it in items %}
+      <tr>
+        <td>{{ it.code }}</td>
+        <td>{{ it.description }}</td>
+        <td>{{ it.unit }}</td>
+        <td>{{ "%.2f"|format(it.unit_price) }}</td>
+        <td>
+          <form method="post" action="{{ url_for('delete_catalogo', aid=it.id) }}" onsubmit="return confirm('Eliminare attività?')">
+            <button class="btn btn-sm btn-danger">Elimina</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="text-center">Nessuna attività presente</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Assegna attività a cantiere -->
+  <h4 class="mt-4">Assegna attività a cantiere</h4>
+
+  {% if not sites %}
+    <div class="alert alert-warning">
+      Nessun cantiere disponibile. Vai su 
+      <a href="{{ url_for('clients_sites') }}">Clienti & Cantieri</a> per crearli.
     </div>
-  </div>
+  {% else %}
+    <form method="post" action="{{ url_for('assign_activity') }}" class="row g-2">
+      <div class="col-md-4">
+        <label class="form-label">Cantiere</label>
+        <select class="form-select" name="site_id" required>
+          <option value="">—</option>
+          {% for s in sites %}
+            <option value="{{ s.id }}">
+              {{ s.name }}{% if s.client %} — {{ s.client.name }}{% endif %}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Attività</label>
+        <select class="form-select" name="activity_id" required>
+          <option value="">—</option>
+          {% for it in items %}
+            <option value="{{ it.id }}">{{ it.code }} — {{ it.description }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Q.tà iniziale</label>
+        <input type="number" step="0.01" class="form-control" name="initial_qty" value="0">
+      </div>
+      <div class="col-md-2 d-flex align-items-end">
+        <button class="btn btn-primary w-100">Assegna</button>
+      </div>
+    </form>
+  {% endif %}
 </div>
 {% endblock %}

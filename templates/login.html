@@ -1,9 +1,9 @@
-{% extends "base.html" %}
+{% extends "_layout.html" %}
 {% block content %}
-<div class="row">
-  <div class="col-md-5 mx-auto">
+<div class="row justify-content-center">
+  <div class="col-md-5">
     <div class="card p-4">
-      <h3 class="mb-3"><i class="bi bi-person-lock"></i> Login</h3>
+      <h4 class="mb-3">Accedi</h4>
       <form method="post">
         <div class="mb-3">
           <label class="form-label">Username</label>
@@ -11,9 +11,9 @@
         </div>
         <div class="mb-3">
           <label class="form-label">Password</label>
-          <input type="password" name="password" class="form-control" required>
+          <input name="password" type="password" class="form-control" required>
         </div>
-        <button class="btn btn-primary">Accedi</button>
+        <button class="btn btn-primary w-100">Entra</button>
       </form>
     </div>
   </div>

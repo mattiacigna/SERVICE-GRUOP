@@ -1,25 +1,33 @@
-{% extends "base.html" %}
+{% extends "_layout.html" %}
 {% block content %}
-<div class="row g-4">
+<div class="row g-3">
   <div class="col-md-6">
     <div class="card p-4">
-      <h5>I miei cantieri</h5>
-      <ul class="list-group list-group-flush">
-        {% for s in sites %}
-        <li class="list-group-item bg-transparent text-light">{{ s.name }} <span class="badge bg-secondary">{{ s.client.name }}</span></li>
-        {% else %}
-        <li class="list-group-item bg-transparent text-light">Nessun cantiere assegnato</li>
-        {% endfor %}
-      </ul>
+      <h5>Le mie attività</h5>
+      <p class="text-muted">Inserisci quantità lavorate per i cantieri assegnati.</p>
+      <a class="btn btn-primary" href="{{ url_for('capo_attivita') }}">Registra attività</a>
     </div>
   </div>
   <div class="col-md-6">
     <div class="card p-4">
-      <h5>Azioni rapide</h5>
-      <a class="btn btn-primary me-2" href="{{ url_for('capo_attivita') }}">Inserisci attività</a>
-      <a class="btn btn-outline-light me-2" href="{{ url_for('capo_spese') }}">Spese cantiere</a>
-      <a class="btn btn-outline-light" href="{{ url_for('capo_spese_veicoli') }}">Spese veicoli</a>
+      <h5>Attività extra & Spese</h5>
+      <div class="d-flex gap-2 flex-wrap">
+        <a class="btn btn-outline-primary" href="{{ url_for('capo_attivita_extra') }}">Attività extra</a>
+        <a class="btn btn-outline-primary" href="{{ url_for('capo_spese') }}">Spese cantiere</a>
+        <a class="btn btn-outline-primary" href="{{ url_for('capo_spese_veicoli') }}">Spese veicoli</a>
+      </div>
     </div>
   </div>
 </div>
+
+{% if sites %}
+<div class="card p-4 mt-3">
+  <h5>Cantieri assegnati</h5>
+  <ul class="mb-0">
+    {% for s in sites %}
+      <li>{{ s.name }} {% if s.address %}<span class="text-muted">— {{ s.address }}</span>{% endif %}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
 {% endblock %}
